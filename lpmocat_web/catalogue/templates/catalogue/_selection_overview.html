@@ -1,0 +1,150 @@
+{% load static %}
+{# Compare page, below the 3D viewer and the plots: the compared proteins among the catalogue. The #}
+{# browse page's overview charts count them (in colour) with the rest of the catalogue in grey, #}
+{# beside the browse page's tree pruned to them. The data (views.compare_overview, cached) are #}
+{# fetched after the page has loaded; catalogue_overview.js and selection_tree.js draw them. #}
+<section class="cmp-card sel-card" id="selectionOverviewCard">
+    <div class="cmp-card-head">
+        <div>
+            <h2 class="cmp-card-title">
+                <button type="button" class="sel-fold" id="selectionOverviewFold" aria-expanded="true" aria-controls="catalogueOverview">Selection overview</button>
+            </h2>
+            <div class="cmp-card-sub">The compared proteins in colour (by family) and, in grey, the rest of the catalogue. Hover a bar, dot or label to highlight its proteins in the tree on the left.</div>
+        </div>
+        <div class="cmp-card-tools" id="selectionOverviewTools">
+            <div class="ov-segmented" role="group" aria-label="Rest of the catalogue">
+                <button type="button" data-rest="shown" class="active" aria-pressed="true" title="The rest of the catalogue in grey behind the compared proteins">With the catalogue</button>
+                <button type="button" data-rest="hidden" aria-pressed="false">Compared only</button>
+            </div>
+        </div>
+    </div>
+    <div class="sel-overview" id="catalogueOverview" data-mode="selection"
+         data-src="{% url 'compare_overview' %}?ids={% for prot in protein_records %}{{ prot.protein_code|urlencode }}{% if not forloop.last %},{% endif %}{% endfor %}">
+        <p class="ov-hint sel-loading">Loading the overview…</p>
+        <div class="sel-layout">
+            <div class="sel-tree-pane">
+                <div class="sel-tree-head">
+                    <div>
+                        <div class="ov-card-title">Sequence similarity of the compared proteins</div>
+                        <div class="ov-card-sub">The browse page's tree with only these proteins: BLOSUM62 distances between the catalytic-domain sequences, their residues paired by the structural alignment (US-align); average linkage (UPGMA). Grey: a predicted model, a regioselectivity from the EC numbers only, nothing found. Hover a row or a branch for details; click one to pick its proteins (amber).</div>
+                    </div>
+                    <div class="sel-tree-actions">
+                        <button type="button" class="ov-view-btn" id="selectionTreeExport" title="Save the tree with its columns as an SVG file">Export SVG</button>
+                    </div>
+                </div>
+                <div class="sel-tree" id="selectionTree"></div>
+                <div class="gf-pane">
+                    {# the three analyses, one per row: the button, then what it needs #}
+                    <div class="gf-controls gf-stack">
+                        <button type="button" class="ov-view-btn" id="treeFeaturesRun"
+                                title="Rank the proteins' features by how closely their differences follow the distances in the tree, over every pair of proteins (no cut needed)">Which features follow the tree?</button>
+                        <span class="gf-extra"></span>
+                        <button type="button" class="ov-view-btn" id="pickedFeaturesRun"
+                                title="Rank the proteins' features by how well they discriminate the picked proteins (none picked: all the compared ones) from the set chosen beside">Which features discriminate the compared proteins from</button>
+                        <span class="gf-extra">
+                            <label class="gf-against" aria-label="Reference set">
+                                <select id="pickedFeaturesReference" class="viewerSelect">
+                                    <option value="comparison">the rest of the comparison</option>
+                                    <option value="families" selected>the catalogue, same families</option>
+                                    <option value="catalogue">the whole catalogue</option>
+                                </select>
+                            </label>
+                            <button type="button" class="ov-view-btn" id="pickedFeaturesClear" title="Unpick all proteins">Clear pick</button>
+                        </span>
+                        <button type="button" class="ov-view-btn" id="groupingFeaturesRun"
+                                title="Rank the proteins' features by how well they separate the groups of the current cut">Which features separate the groups?</button>
+                        <span class="gf-extra">
+                            {% if protein_groups.groups %}
+                            <label class="gf-against" title="The groups to separate: those you made on the browse page, or those of the tree cut (Group at)">
+                                <select id="groupingSource" class="viewerSelect" aria-label="Groups to separate">
+                                    <option value="yours" selected>your groups</option>
+                                    <option value="tree">the tree cut</option>
+                                </select>
+                            </label>
+                            {% endif %}
+                            <label class="sel-cut" for="selectionTreeCut"
+                                   title="Cut the tree at this distance: each group below the cut gets its own shade of the family colour">
+                                <span>Group at</span>
+                                <input type="range" id="selectionTreeCut" min="0" max="1000" value="1000" step="1">
+                                <input type="number" class="sel-cut-value" id="selectionTreeCutValue" min="0" step="0.01"
+                                       placeholder="off" aria-label="Group at distance"
+                                       title="Type a distance; empty (or the tree's full height) = no grouping">
+                                <span class="sel-cut-read" id="selectionTreeCutRead">off</span>
+                            </label>
+                        </span>
+                        <span class="gf-status" id="groupingFeaturesStatus">Click proteins in the tree to pick them, or set "Group at" to compare groups.</span>
+                    </div>
+                    <div class="gf-result" id="groupingFeatures"></div>
+                </div>
+            </div>
+            <div class="sel-charts">
+                {% include "catalogue/_overview_cards.html" %}
+                {# Along the alignment: computed when it first comes into view (compare_protein.js, #}
+                {# loadLogo / loadAnalysis); both highlight their proteins in the tree on the left #}
+                <div class="sel-analysis" id="analysis-panel">
+                    <figure class="sel-an-card">
+                        <figcaption>
+                            <span class="ov-card-title">Sequence composition logo</span>
+                            <span class="ov-card-sub">One column per aligned position of the catalytic domain; a letter's height is the share of the compared proteins with that residue, the empty top the share with a gap. One tall letter: a conserved position; several short ones: a variable one. Hover a letter to highlight its proteins in the tree.</span>
+                        </figcaption>
+                        <div id="analysisLogo" class="analysis-plot"></div>
+                    </figure>
+                    <figure class="sel-an-card">
+                        <figcaption>
+                            <span class="ov-card-title">Protein similarity</span>
+                            <span class="ov-card-sub">How alike two proteins are for one property over one region, compared position by position along the structural alignment. Hover a cell for the pair, its value and the positions it rests on (the pair is also highlighted in the tree). Few positions (one loop, the binding surface, hole hopping) make it noisy.</span>
+                        </figcaption>
+                        <div class="analysis-controls">
+                            <label class="analysis-field">Region
+                                <select id="analysisRegion" class="viewerSelect" onchange="loadAnalysis()">
+                                    <option value="whole" selected>Whole catalytic domain</option>
+                                    <option value="loops">All loops</option>
+                                    <option value="core">Core (non-loop)</option>
+                                    {% for ln in analysis_loops %}<option value="{{ ln }}">Loop {{ ln }}</option>{% endfor %}
+                                    <option value="binding">Binding surface</option>
+                                    <option value="binding_aromatic">Aromatic binding residues</option>
+                                    <option value="second">Second-sphere residues</option>
+                                    <option value="hh">Hole-hopping residues</option>
+                                </select>
+                            </label>
+                            <label class="analysis-field">Property
+                                <select id="analysisProperty" class="viewerSelect" onchange="onAnalysisPropertyChange()">
+                                    <option value="sequence" selected>Sequence (identity)</option>
+                                    <option value="aa_groups">Amino-acid groups</option>
+                                    <option value="hydrophobicity">Hydrophobicity</option>
+                                    <option value="charge">Charge</option>
+                                    <option value="rsa">Relative SASA</option>
+                                    <option value="flexibility">Flexibility</option>
+                                </select>
+                            </label>
+                            <label class="analysis-field" id="analysisFlexField" style="display:none;">Method
+                                <select id="analysisFlexMethod" class="viewerSelect" onchange="loadAnalysis()">
+                                    {% for m in flex_methods %}<option value="{{ m.0 }}">{{ m.1 }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <label class="analysis-field analysis-check" title="Restrict the region to residues exposed to the surface (relative SASA ≥ 25%)">
+                                <span>&nbsp;</span>
+                                <span><input type="checkbox" id="analysisExposed" onchange="loadAnalysis()"> Surface-exposed only</span>
+                            </label>
+                            <label class="analysis-field" title="As the tree: the rows follow the tree on the left, so a block along the diagonal means the property follows sequence similarity">Order
+                                <select id="analysisOrder" class="viewerSelect" onchange="rerenderSimilarity()">
+                                    <option value="tree" selected>As the tree</option>
+                                    <option value="cluster">Clustered by this property</option>
+                                </select>
+                            </label>
+                        </div>
+                        <details class="analysis-how">
+                            <summary>How is it calculated?</summary>
+                            <p id="analysisHow"></p>
+                        </details>
+                        <div id="analysisStatus" class="analysis-status"></div>
+                        <div id="analysisSimilarity" class="analysis-plot"></div>
+                    </figure>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<script src="{% static 'catalogue/js/selection_tree.js' %}?{% now 'U' %}" defer></script>
+<script src="{% static 'catalogue/js/grouping_features.js' %}?{% now 'U' %}" defer></script>
+<script src="{% static 'catalogue/js/catalogue_overview.js' %}?{% now 'U' %}" defer></script>

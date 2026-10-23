@@ -1,0 +1,4 @@
+# Builds the pipeline documentation (mkdocs.yml in the repository root); kept apart from the
+# app's and the pipeline's requirements
+mkdocs==1.6.1
+mkdocs-material==9.7.7

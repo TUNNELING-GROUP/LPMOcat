@@ -1,0 +1,2571 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png" sizes="48x48">
+        <title>Compare proteins · LPMOcat</title>
+        <script src="https://cdn.plot.ly/plotly-3.3.0.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pdbe-molstar@3.5.0/build/pdbe-molstar-light.css" />
+        <script src="{% static 'js/compare_protein.js' %}?{% now 'U' %}"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/pdbe-molstar@3.5.0/build/pdbe-molstar-plugin.js"></script>
+        <link rel="stylesheet"  href="{% static 'css/compare_protein.css' %}?{% now 'U' %}">
+        <link rel="stylesheet"  href="{% static 'css/compare_layout.css' %}?{% now 'U' %}">
+        <link rel="stylesheet"  href="{% static 'css/catalogue_overview.css' %}?{% now 'U' %}">
+        <link rel="stylesheet"  href="{% static 'css/selection_overview.css' %}?{% now 'U' %}">
+    </head>
+
+<body >
+    <div id="comparisonLoadingOverlay" class="comparison-loading-overlay" style="display: flex;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2 id="loadingTitle">Building Your Comparison...</h2>
+            <p id="loadingMessage">Preparing visualizations...</p>
+        </div>
+    </div>
+    
+    <script>
+        // Keep the "Building Your Comparison…" overlay up until the essentials are ready:
+        // all Mol* structures loaded + coloured AND the Sequence plots drawn (see the
+        // makePlotsFromJSON call in loadComplete, which fires only after both). Idempotent;
+        // also revealed on the error paths and by a fallback timeout so a slow/failed load
+        // can never trap the user behind it.
+        (function() {
+            let hidden = false;
+            window.hideComparisonLoadingOverlay = function() {
+                if (hidden) return;
+                hidden = true;
+                // the selection overview draws its charts from now on (catalogue_overview.js)
+                window.comparisonReady = true;
+                document.dispatchEvent(new Event('comparison-ready'));
+                const overlay = document.getElementById('comparisonLoadingOverlay');
+                if (!overlay) return;
+                overlay.style.transition = 'opacity 0.3s ease';
+                overlay.style.opacity = '0';
+                setTimeout(function() { overlay.style.display = 'none'; }, 300);
+            };
+            // Safety net: reveal after 60s no matter what (worst-case slow Mol* load).
+            setTimeout(window.hideComparisonLoadingOverlay, 60000);
+        })();
+    </script>
+
+    <header>
+        <div class="header-content">
+            <div class="header-logo-left">
+                <a href="/"><img src="{% static 'images/LPMOcat_logo_new_green.svg' %}" alt="LPMOcat Logo"></a>
+            </div>
+            
+            <div class="header-center">
+                <div class="header-title">
+                    <h1>Visualize and compare structural properties of lytic polysaccharide monooxygenases</h1>
+                </div>
+                {% include "catalogue/_navigation.html" %}
+            </div>
+            
+            <div class="header-logo-right">
+                <a href="https://new-cat.eu/" target="_blank" rel="noopener noreferrer"><img src="{% static 'images/NewCat-logo.jpg' %}" alt="NewCat Logo"></a>
+            </div>
+            <div class="active-users" data-tooltip="Active users" id="active-users">
+                <img src="{% static 'images/users.svg' %}" alt="Active Users" style="width: 20px; height: 20px;"> Active users: <span id="active-users-count">1</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <div class="cmp-head">
+            <div class="cmp-codes">{{ protein_records|length }} selected: {% for prot in protein_records %}{{ prot.protein_code }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</div>
+            <a class="cmp-btn" href="/catalogue/?select={% for prot in protein_records %}{{ prot.protein_code|urlencode }}{% if not forloop.last %},{% endif %}{% endfor %}{% if groups_param %}&amp;groups={{ groups_param|urlencode }}{% endif %}" title="The browse page with these proteins selected{% if groups_param %} and their groups{% endif %}">&larr; Back to selection</a>
+        </div>
+        {% if protein_groups.groups %}
+        <!-- The groups of this comparison ("Add as group" on the browse page) -->
+        <div class="cmp-groups" aria-label="Groups">
+            <span class="cmp-groups-label">Groups</span>
+            {% for g in protein_groups.groups %}
+            <span class="group-chip{% if g.ungrouped %} ungrouped{% endif %}" style="--group-color: {{ g.color }};" title="{{ g.codes|join:', ' }}"><span class="group-swatch"></span>{{ g.name }} <span class="group-count">{{ g.codes|length }}</span></span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- The compared set in numbers -->
+        <div class="ov-stats cmp-stats">
+            <div class="ov-stat"><div class="ov-stat-value">{{ summary.proteins }}</div><div class="ov-stat-label">Proteins</div><div class="ov-stat-note">of {{ summary.catalogue }} in the catalogue</div></div>
+            <div class="ov-stat"><div class="ov-stat-value">{{ summary.families|length }}</div><div class="ov-stat-label">LPMO families</div><div class="ov-stat-note">{{ summary.families|join:", " }}</div></div>
+            <div class="ov-stat"><div class="ov-stat-value">{{ summary.species }}</div><div class="ov-stat-label">Source species</div></div>
+            <div class="ov-stat"><div class="ov-stat-value">{{ summary.experimental }}</div><div class="ov-stat-label">Experimental structures</div><div class="ov-stat-note">PDB</div></div>
+            <div class="ov-stat"><div class="ov-stat-value">{{ summary.predicted }}</div><div class="ov-stat-label">Predicted models</div>{% if summary.predicted_sources %}<div class="ov-stat-note">{{ summary.predicted_sources }}</div>{% endif %}</div>
+        </div>
+
+    <!-- Table Section -->
+        <section class="table-container cmp-card">
+            <div class="cmp-card-head">
+                <div>
+                    <h2 class="cmp-card-title">Proteins</h2>
+                    <div class="cmp-card-sub">Untick a protein to hide it in the 3D viewer. Click a column header to sort.</div>
+                </div>
+                <div class="cmp-card-tools">
+                    <label for="rowsPerPage">Show</label>
+                    <select id="rowsPerPage" class="viewerSelect" onchange="updateTablePagination()">
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="all">All</option>
+                    </select>
+                    <span id="tableInfo">entries</span>
+                    <button type="button" class="exportBtn" onclick="downloadTableAsCSV()">Download table (.csv)</button>
+                    <button type="button" class="exportBtn" onclick="downloadActivitiesAsCSV()" title="Every reported substrate and oxidised position with its papers, including the substrates tested without activity">Substrate evidence (.csv)</button>
+                    <button type="button" class="exportBtn exportBtn-all" onclick="window.location.href='{% url 'download_comparison' %}?ids={{ protein_codes_list|join:','|urlencode }}{% if groups_param %}&amp;groups={{ groups_param|urlencode }}{% endif %}'" title="Everything about these proteins in one zip: the table, the substrate evidence, the per-residue data and the alignment (catalytic domain and full length), the PDB structures, and a README with the data release">Download comparison (.zip)</button>
+                </div>
+            </div>
+            {{ activity_export|json_script:"activityExport" }}
+            <table class="catalog-table" id="proteinTable">
+                <tr>
+                    <th></th>
+                    <th class="sortable" data-column="name" onclick="sortTable(1)">
+                        Name <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="clade" onclick="sortTable(2)">
+                        Clade <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="catalytic_length" onclick="sortTable(3)">
+                        CD length <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="sequence_length" onclick="sortTable(4)">
+                        Total length <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="catalytic_mass" onclick="sortTable(5)" title="Polypeptide mass of the catalytic domain, from the structure sequence (no glycans or metal)">
+                        CD mass (kDa) <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="sequence_mass" onclick="sortTable(6)" title="Polypeptide mass of the whole structure sequence (no glycans or metal)">
+                        Total mass (kDa) <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="structure" onclick="sortTable(7)">
+                        3D structure <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="uniprot" onclick="sortTable(8)">
+                        UniProt <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="organism" onclick="sortTable(9)">
+                        Organism <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="taxonomy" onclick="sortTable(10)" title="NCBI Taxonomy lineage above the species">
+                        Taxonomy <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="ec_numbers" onclick="sortTable(11)" title="The EC numbers CAZy, Swiss-Prot and BRENDA give this protein; ⚠ when they differ. Hover a number for its sources, and its superscripts for the papers.">
+                        EC Number <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="substrates" onclick="sortTable(12)" title="Substrates with activity reported in the literature (CAZy's EC numbers, Swiss-Prot, BRENDA); the superscripts are the papers in the References column. Substrates tested without activity are in the hover text and in the substrate evidence CSV. A protein no source reports on shows the substrates of its EC numbers.">
+                        Substrates <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="regioselectivity" onclick="sortTable(13)" title="C1, C4 or C1/C4: the oxidised positions the papers report (with their papers), else those the EC numbers define (IUBMB).">
+                        Regioselectivity <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="associated_CBMs" onclick="sortTable(14)">
+                        Associated CBMs <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="second_sphere" onclick="sortTable(15)" title="Hydrogen-bonding residues from the one holding the Gln/Glu to the axial Tyr/Phe, with the number of residues between them (X8); hover a motif for its residues">
+                        Second-sphere motif <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="shielding" onclick="sortTable(16)" title="The residue over the copper on its solvent side, opposite the axial Tyr/Phe (an atom within 4.5 &Aring; of the copper), e.g. the conserved Ala of AA10s; None (open) = the copper is open there">
+                        Shielding residue <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="n_his" onclick="sortTable(17)" title="Motif after the N-terminal His of the histidine brace (Xn = n residues of any kind); hover for the residues">
+                        N-His motif <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="internal_his" onclick="sortTable(18)" title="Motif after the internal His of the histidine brace; hover for the residues">
+                        Internal-His motif <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="binding_aromatics" onclick="sortTable(19)" title="Phe, Trp, Tyr and His on the binding surface (the residues the plane at the copper face touches), the brace histidines left out; hover for each residue's loop">
+                        Aromatic binding residues <span class="sort-indicator"></span>
+                    </th>
+                    <th data-column="references">
+                        References
+                    </th>
+                </tr>
+                {% for row in table_rows %}
+                <tr class="proteinEntry{% if row.group_color %} grouped{% endif %}" data-protein-index="{{ row.index }}"{% if row.group_color %} data-group="{{ row.group_name }}" style="--group-color: {{ row.group_color }};"{% endif %}>
+                    <td><input type="checkbox" value="{{ row.index }}" class="proteinVisibilityCheckbox" checked onchange="toggleProteinVisibility(window.viewerInstance, numberOfDifferentRepresentations, {{protCount}})"></td>
+                    <td>{% if row.group_name %}<span class="group-chip small" style="--group-color: {{ row.group_color }};" title="Group {{ row.group_name }}"><span class="group-swatch"></span>{{ row.group_name }}</span>{% endif %}{% if row.name %}<span class="protein-names" data-names="{{ row.name }}"></span>{% endif %}</td>
+                    <td>{{ row.clade }}</td>
+                    <td>{{ row.catalytic_length }}</td>
+                    <td>{{ row.sequence_length }}</td>
+                    <td>{{ row.catalytic_mass }}</td>
+                    <td>{{ row.sequence_mass }}</td>
+                    <td><span class="struct-col" data-selected="{{ row.selected_structure|default_if_none:'' }}" data-pdb="{{ row.pdb_codes|default_if_none:'' }}"></span></td>
+                    <td><span class="uniprot-col" data-uniprot="{{ row.uniprot|default_if_none:'' }}" data-notes="{{ row.uniprot_notes }}" data-uniparc="{{ row.uniparc }}"></span></td>
+                    <td>{{ row.organism }}</td>
+                    <td class="taxonomy-cell"><span class="taxonomy-col" data-lineage="{{ row.taxonomy }}">{{ row.taxonomy }}</span></td>
+                    <td>{% if row.ec_cells %}<span class="ec-list">{% for cell in row.ec_cells %}<span class="cell-item"><span title="{{ cell.title }}">{{ cell.text }}</span>{% for r in cell.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}</span>{% if not forloop.last %}, {% endif %}{% endfor %}{% if row.ec_differs %} <span class="actWarn" title="the sources give different EC numbers for this protein; hover each number to see which">&#9888;</span>{% endif %}</span>{% else %}{{ row.ec_numbers }}{% endif %}</td>
+                    <td>{% if row.reported_substrates %}<span class="substrates-list">{% for sub in row.reported_substrates %}<span class="sub-item"><span title="{{ sub.title }}">{{ sub.name }}</span>{% if sub.conflict %}<span class="actWarn" title="another paper reports no activity on this substrate — hover the substrate for both">&#9888;</span>{% endif %}{% for r in sub.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>
+                    <td>{% if row.regio_refs %}<span title="{{ row.regio_refs.title }}">{{ row.regioselectivity }}</span>{% for r in row.regio_refs.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}{% elif row.regioselectivity == 'Unknown' %}<span title="no paper in the sources gives the oxidised position, and the EC number does not define one">{{ row.regioselectivity }}</span>{% else %}<span title="from the EC numbers, as the IUBMB defines them">{{ row.regioselectivity }}</span>{% endif %}</td>
+                    <td>{{ row.associated_CBMs }}</td>
+                    <td class="site-cell"><span title="{{ row.second_sphere.title }}">{{ row.second_sphere.text }}</span></td>
+                    <td class="site-cell"><span title="{{ row.shielding.title }}">{{ row.shielding.text }}</span></td>
+                    <td class="site-cell"><span title="{{ row.n_his.title }}">{{ row.n_his.text }}</span></td>
+                    <td class="site-cell"><span title="{{ row.internal_his.title }}">{{ row.internal_his.text }}</span></td>
+                    <td><span title="{{ row.binding_aromatics.title }}">{{ row.binding_aromatics.text }}</span></td>
+                    <td class="refs-cell">{{ row.references|safe }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            <div class="cmp-table-foot">
+                <div id="paginationControls">
+                    <button id="prevPageBtn" class="exportBtn" onclick="changePage(-1)" disabled>Previous</button>
+                    <span id="pageInfo">Page 1 of 1</span>
+                    <button id="nextPageBtn" class="exportBtn" onclick="changePage(1)" disabled>Next</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="ViewerAndPlotsContainer">
+            <!-- 3D Viewer Section -->
+            <div class="viewer-container">
+                <div class="viewerCard cmp-card">
+                <div class="cmp-card-head">
+                    <div>
+                        <h2 class="cmp-card-title">3D structures</h2>
+                        <div class="cmp-card-sub">Superposed by the structural alignment. Drag to rotate, scroll to zoom.</div>
+                    </div>
+                </div>
+                <div class="molstarFrame" style="position:relative;">
+                    <div id="myViewer"></div>
+                    <canvas id="holeHoppingPathCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none; z-index:10;"></canvas>
+                </div>
+
+                <div class="ViewerButtonsAndHeaderContainer">
+                    <div class="controlsBar">
+                        <div class="mstar-controls">
+                            <!-- 1. Proteins -->
+                            <div class="mstar-group">
+                                <span class="mstar-label">Proteins</span>
+                                <div class="protein-visibility-dropdown" id="proteinVisibilityDropdown">
+                                    <button type="button" id="proteinVisibilityToggle" class="viewerSelect">Showing all proteins</button>
+                                    <div class="protein-visibility-panel" id="proteinVisibilityPanel">
+                                        <div class="visibility-actions">
+                                            <button type="button" id="selectAllProteinsBtn">Select all</button>
+                                            <button type="button" id="clearAllProteinsBtn">Clear</button>
+                                        </div>
+                                        {% if protein_groups.groups %}
+                                        <div class="visibility-groups">
+                                            <span>Only:</span>
+                                            {% for g in protein_groups.groups %}<button type="button" class="groupOnlyBtn" data-group-index="{{ forloop.counter0 }}" style="--group-color: {{ g.color }};" title="Show only the proteins of {{ g.name }}"><span class="group-swatch"></span>{{ g.name }}</button>{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        <div class="visibility-checkboxes">
+                                            {% for prot in protein_records %}
+                                            <label>
+                                                <input type="checkbox" class="dropdownProteinCheckbox" data-index="{{ forloop.counter0 }}" data-name="{{ prot.protein_code }}" checked>
+                                                {{ prot.protein_code }}
+                                            </label>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 2. Show as (representation) -->
+                            <div class="mstar-group">
+                                <span class="mstar-label">Show as</span>
+                                <select id="mainRepSelect" class="viewerSelect" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)">
+                                    <option value="cartoon" selected>Cartoon</option>
+                                    <option value="molecular-surface">Surface</option>
+                                    <option value="ball-and-stick">Ball and stick</option>
+                                    <option value="none">None</option>
+                                </select>
+                            </div>
+                            <!-- 3. Colour by (each plot also has its own "Colour 3D by this" button) -->
+                            <div class="mstar-group">
+                                <span class="mstar-label">Colour by</span>
+                                <label for="coloringSelect" class="sr-only">Color residues by</label>
+                                <select id="coloringSelect" class="viewerSelect" onchange="if(window.viewerInstance) applyMolstarColoring(this.value, {{protCount}});">
+                                    <option value="none">None (white)</option>
+                                    <option value="sequence" selected title="The Sequence plot's colours: residue types (charged, aromatic, sulphur-containing) and the active-site roles (brace, second sphere, motifs)">Amino-acid groups</option>
+                                    <option value="flexibility">Flexibility</option>
+                                    <option value="hydrophobicity">Hydrophobicity</option>
+                                    <option value="charge">Charge</option>
+                                    <option value="secondaryStructure">Secondary structure</option>
+                                    <option value="rsa">Relative surface accessibility</option>
+                                    <option value="bindingSurface">Binding surface</option>
+                                    <option value="loopRegions">Loop regions</option>
+                                    <option value="holeHopping">Hole hopping</option>
+                                    {% if protein_groups.groups %}<option value="group">Group</option>{% endif %}
+                                </select>
+                                <label class="plain-check" title="The protein white; the residues shown as sticks keep the colours of the chosen colouring"><input type="checkbox" id="colorOnlySticks" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Colour only the sticks</label>
+                            </div>
+                            <!-- View: the camera set from the binding-surface plane (step 7c); a click
+                                 re-applies the view, also after the structure was turned by hand -->
+                            <div class="mstar-group">
+                                <span class="mstar-label">View</span>
+                                <div class="toggle-group" title="Oriented by the plane laid on the copper face (the binding surface)">
+                                    <label class="toggle-btn" title="Looking straight down onto the copper face, the copper in the centre"><input type="radio" name="viewMode" value="top" checked onclick="applyViewMode(this.value)"> Top</label>
+                                    <label class="toggle-btn" title="From the side, the copper face up"><input type="radio" name="viewMode" value="side" onclick="applyViewMode(this.value)"> Side</label>
+                                    <label class="toggle-btn" title="Close up on the copper, from above"><input type="radio" name="viewMode" value="site" onclick="applyViewMode(this.value)"> Active site</label>
+                                </div>
+                            </div>
+                            <!-- 4. Show as sticks: residue sets drawn as sticks over the main representation
+                                 (data-overlay names the set, read by initializeRepresentations) -->
+                            <div class="mstar-group grow">
+                                <span class="mstar-label">Show as sticks</span>
+                                <div class="toggle-group">
+                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="brace" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Histidine brace</label>
+                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="secondSphere" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Second-sphere residues</label>
+                                    <label class="toggle-btn" title="The residues a plane laid on the copper face touches"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingSurface" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Binding surface</label>
+                                    <label class="toggle-btn" title="Phe, Trp, Tyr and His on the binding surface (the brace histidines left out)"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingAromatics" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Aromatic binding residues</label>
+                                    <label class="toggle-btn" title="Both cysteines of every disulfide bond"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="disulfides" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Disulfide bonds</label>
+                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="holeHopping" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Hole-hopping residues</label>
+                                    {% if stick_loops %}<span class="toggle-group-label">Loops</span>{% endif %}
+                                    {% for ln in stick_loops %}<label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="loop" data-loop="{{ ln }}" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> {{ ln }}</label>{% endfor %}
+                                </div>
+                            </div>
+                            <!-- 5./6. Two independent switches on a row of their own -->
+                            <div class="switch-row">
+                            <!-- 5. Hole-hopping paths: an overlay drawn over the viewer (canvas) -->
+                            <div class="switch-group">
+                                <label class="mini-switch"><input type="checkbox" id="holeHoppingPathCheckbox" onchange="toggleHoleHoppingPaths(this.checked)"><span class="mini-switch-track"><span class="mini-switch-knob"></span></span> Display hole-hopping paths</label>
+                                <span class="switch-info" tabindex="0" aria-label="About the hole-hopping paths">?
+                                    <span class="switch-tip" role="tooltip">The paths an electron hole can take from the surface to the copper (EHPath): each residue on a path is a dot (darker = a surface-exposed donor), consecutive residues are joined by lines in the protein's colour, and the copper is the orange dot. Hover a dot to highlight every path through that residue, from the residue on to the copper; the other paths fade.</span>
+                                </span>
+                            </div>
+                            <!-- 6. Protonated structures: reloads the viewer -->
+                            <div class="switch-group">
+                                <label class="mini-switch" title="The structures with the polar hydrogens added by PDB2PQR (standard protonation states)"><input type="checkbox" id="showProtonated" onchange="reloadStructures(this.checked)"><span class="mini-switch-track"><span class="mini-switch-knob"></span></span> Load protonated structures</label>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Export sits below the control panel, separate from the viewer controls -->
+                    <div class="mstar-export-bar">
+                        <span class="mstar-label">Export:</span>
+                        <button class="exportBtn" onclick="exportMolstarPNG()" title="Export current Mol* view as PNG">Mol* view (.png)</button>
+                        <button class="exportBtn" onclick="downloadSelectedPDBs(); return false;" title="Download the structures shown (ticked proteins) as PDB files, catalytic domain or full length as the view switch says; with Protonated on, the protonated structures (every hydrogen) and their PDB2PQR files (charges and radii)">PDB structures</button>
+                    </div>
+                </div>
+
+                </div>
+
+            </div>
+
+            <div class="plotContainer cmp-card">
+                <div class="cmp-card-head">
+                    <div>
+                        <h2 class="cmp-card-title">Plots along the alignment</h2>
+                        <div class="cmp-card-sub">One row per protein. Open a plot below; its <strong>?</strong> explains the colours.{% if plots_closed %} With more than {{ plots_closed_above }} proteins one plot is open at a time: opening a plot closes the one open before.{% endif %}</div>
+                    </div>
+                <div class="fulllen-switch-bar" title="Applies to the 3D viewer and every plot">
+                    <label class="fulllen-switch" id="fullLenSwitch" title="Choose the view for both the 3D structure and every plot: catalytic domain only, or the whole protein length.">
+                        <input type="checkbox" id="showFullStructure" onchange="if(window.handleFullLengthToggle){ handleFullLengthToggle(this, {{protCount}}); } else { if(window.syncFullLenLabel) syncFullLenLabel(); if(window.setFlexColoringForView) setFlexColoringForView(); if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance); if(window.reloadLoadedPlotSections) reloadLoadedPlotSections(); }">
+                        <span class="fulllen-side fulllen-left">Catalytic domain</span>
+                        <span class="fulllen-track"><span class="fulllen-knob"></span></span>
+                        <span class="fulllen-side fulllen-right">Full length</span>
+                    </label>
+                </div>
+                </div>
+                <script>
+                    function syncFullLenLabel() {
+                        var cb = document.getElementById('showFullStructure');
+                        var sw = document.getElementById('fullLenSwitch');
+                        if (!cb || !sw) return;
+                        sw.classList.toggle('is-full', cb.checked);
+                    }
+                    window.syncFullLenLabel = syncFullLenLabel;
+                    syncFullLenLabel();
+                </script>
+                <div class="plot-interaction-hint">
+                    <span class="plot-hint-icon">🖱️</span>
+                    Hover a residue for details · click it to zoom to it in the 3D viewer
+                </div>
+                {% for data in plots_data %}
+                <div class="dropdownPlots" id="plot-type-{{ forloop.counter0 }}" data-plot-type="{{ data.type }}">
+                    <div class="dropdown-button-container">
+                        <div class="button-with-icon">
+                            <span class="info-icon-wrapper">
+                                <span class="info-icon">?</span>
+                                <div class="legend-tooltip-content">
+                                    <h4>About {{ data.label }}:</h4>
+                                    {{ data.description|safe }}
+                                </div>
+                            </span>
+                            <button class="dropdownButton" onclick="dropdown('dropdown-content-{{ forloop.counter0 }}')">
+                                {{ data.label }}
+                            </button>
+                        </div>
+                    </div>
+
+                    {% comment %}
+                    Only the Sequence section renders inline on load (data.open); every other
+                    plot type is fetched on demand (data-loaded="0") when its
+                    dropdown is opened, so the initial payload stays small. See
+                    loadSectionPlots() in compare_protein.js and the compare_plots view.
+                    A large comparison opens with the Sequence section closed too.
+                    {% endcomment %}
+                    <div class="insideDropdown" id="dropdown-content-{{ forloop.counter0 }}"
+                         style="display:{% if data.open %}block{% else %}none{% endif %};"
+                         data-loaded="{% if data.open %}1{% else %}0{% endif %}"
+                         data-initial-loaded="{% if data.open %}1{% else %}0{% endif %}">
+
+                        {% if data.type == "Hydrophobicity" %}
+                        <div class="plot-export-bar" style="margin: 5px 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 0.85em; color: #5a7a6a;">Scale:</label>
+                            <select id="hydrophobScaleSelect" class="viewerSelect" style="width: auto;" onchange="changeHydrophobicityScale(this.value)">
+                                {% for scale_name in hydrophobicity_scale_names %}
+                                <option value="{{ scale_name }}">{{ scale_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="exportBtn" onclick="exportPlotData('{{ data.type }}')" title="Download {{ data.type }} data">Download data (.csv)</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureByPlot('{{ data.type }}')" title="Colour the 3D structures by {{ data.type }}">🎨 Colour 3D by this</button>
+                        </div>
+                        {% endif %}
+
+                        {% if data.type == "Hole Hopping" %}
+                        <div class="plot-export-bar" style="margin: 5px 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 0.85em; color: #5a7a6a;">Export paths:</label>
+                            <select id="hhExportFormat" class="viewerSelect" style="width: auto;">
+                                <option value="csv">CSV (.csv)</option>
+                                <option value="pml">PyMOL script (.pml)</option>
+                            </select>
+                            <button class="exportBtn" onclick="exportHoleHoppingData()" title="Export hole hopping path data">Download</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureByPlot('{{ data.type }}')" title="Colour the 3D structures by {{ data.type }}">🎨 Colour 3D by this</button>
+                        </div>
+                        {% endif %}
+
+                        {% if data.type == "Flexibility" %}
+                        <div class="plot-export-bar" style="margin: 5px 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            {% if flex_methods %}
+                            <label style="font-size: 0.85em; color: #5a7a6a;">Method:</label>
+                            <select id="flexMethodSelect" class="viewerSelect" style="width: auto;" onchange="changeFlexibilityMethod(this.value)">
+                                {% for m in flex_methods %}
+                                <option value="{{ m.0 }}">{{ m.1 }}</option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                            <button class="exportBtn" onclick="exportPlotData('{{ data.type }}')" title="Download {{ data.type }} data">Download data (.csv)</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureByPlot('{{ data.type }}')" title="Colour the 3D structures by {{ data.type }}">🎨 Colour 3D by this</button>
+                        </div>
+                        {% endif %}
+
+                        {% if data.type == "Secondary Structure and Loops" %}
+                        <div class="plot-export-bar" style="margin: 5px 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            <button class="exportBtn" onclick="exportPlotData('{{ data.type }}')" title="Download secondary structure, core strands, loops and binding surface">Download data (.csv)</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureBy('secondaryStructure')" title="Colour the 3D structures by secondary structure">🎨 Colour 3D by secondary structure</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureBy('loopRegions')" title="Colour the 3D structures by loop regions">🎨 Colour 3D by loops</button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureBy('bindingSurface')" title="Colour the binding-surface residues of every structure (in the colour of the loop each lies in; the rest white)">🎨 Colour 3D by binding surface</button>
+                        </div>
+                        {% endif %}
+
+                        {% if data.type != "Hole Hopping" and data.type != "Hydrophobicity" and data.type != "Flexibility" and data.type != "Secondary Structure and Loops" %}
+                        <div class="plot-export-bar" style="margin: 5px 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            <button class="exportBtn" onclick="exportPlotData('{{ data.type }}')" title="Download {{ data.type }} data">
+                                {% if data.type == "Sequence" %}Download alignment (.fasta){% else %}Download data (.csv){% endif %}
+                            </button>
+                            <button class="exportBtn colorByPlotBtn" onclick="colorStructureByPlot('{{ data.type }}')" title="Colour the 3D structures by {% if data.type == 'Sequence' %}amino-acid groups (the Sequence plot's colours){% else %}{{ data.type }}{% endif %}">🎨 Colour 3D by this</button>
+                        </div>
+                        {% endif %}
+
+                        <div class="protein-plots-grid">
+
+                            <div class="yaxis-labels-column">
+                                {% for prot in protein_records %}
+                                    <div class="yaxis-label protein-plot-container-{{ forloop.counter0 }}{% if prot.group_color %} grouped{% endif %}" data-protein-index="{{ forloop.counter0 }}"{% if prot.group_color %} style="--group-color: {{ prot.group_color }};" title="Group {{ prot.group_name }}"{% endif %}>
+                                        <span class="plot-label-text">{{ prot.protein_code }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="scrollable-plots-column">
+                                {% for plot_html in data.plots_html %}
+                                <div class="plotWrapper protein-plot-container-{{ forloop.counter0 }}" 
+                                     data-protein-index="{{ forloop.counter0 }}" 
+                                     data-plot-type="{{ data.type }}">
+
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                        </div>
+
+                        <div class="shared-axis-wrapper">
+                             </div>
+
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+
+        </div>
+
+        <!-- The compared proteins as a set, among the whole catalogue -->
+        {% include "catalogue/_selection_overview.html" %}
+
+
+    </div>
+
+    {{ molstarColoring|json_script:"molstarColoring" }}
+    {{ binding_planes|json_script:"bindingPlanes" }}
+    {{ protein_groups|json_script:"proteinGroups" }}
+    {{ binding_aromatic_numbers|json_script:"bindingAromaticNumbers" }}
+    {{ protein_codes_list|json_script:"protein-codes-json" |safe}}
+    {# hydrophobicity scales are no longer inlined — fetched on demand via changeHydrophobicityScale() #}
+    {{ export_data|json_script:"exportData" }}
+
+    <script>
+        function updateActiveUsers(){
+            fetch("/catalogue/active-users/")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("active-users-count").innerText = data.active_users;
+                })
+                .catch(err => console.error("error:", err));
+        }
+        updateActiveUsers();
+        setInterval(updateActiveUsers, 5000);
+
+        // NOTE: the loading overlay is intentionally NOT hidden here — it stays up until the
+        // Sequence plots are drawn and Mol* has finished loading/colouring the structures
+        // (window.hideComparisonLoadingOverlay, called from the loadComplete handler below).
+
+        const numberOfDifferentRepresentations = 1; // 1 structure per protein; overlays merged via visual.select()
+
+        var molstarColoring = JSON.parse(document.getElementById('molstarColoring').textContent);
+        window.molstarColoring = molstarColoring;
+        var exportData = JSON.parse(document.getElementById('exportData').textContent);
+        var currentHydrophobScale = null;
+        var currentFlexMethod = null;   // selected flexibility method (null -> server default)
+        var representations = ['molecular-surface', 'ball-and-stick', 'cartoon']
+        var proteinLoadingTime = undefined;
+        var lastAllData = [];  // stores select() data from initializeRepresentations for checkbox toggling
+        // more than COMPARE_PLOTS_CLOSED_ABOVE proteins: one plot section open at a time (dropdown())
+        window.ONE_PLOT_SECTION = {{ plots_closed|yesno:"true,false" }};
+        window.protIdList = [
+        {% for prot in protein_records %}
+            "{{ prot.protein_code }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+        ];
+
+
+        //AJAX
+        
+        const proteinCodes = JSON.parse(document.getElementById('protein-codes-json').textContent);
+        const viewerContainer = document.getElementById('myViewer');
+        
+        function loadStructures(protonated) {
+            proteinLoadingTime = undefined;
+            lastAllData = [];
+
+            viewerContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;"><div style="text-align:center;"><div style="border:4px solid #f3f3f3;border-top:4px solid #569976;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto;"></div><p style="margin-top:10px;color:#666;">Loading 3D structures...</p></div></div>';
+
+            const ids = proteinCodes.join(',');
+            const pdbUrl = `/catalogue/api/pdb-structures/?ids=${encodeURIComponent(ids)}${protonated ? '&protonated=1' : ''}`;
+
+            fetch(pdbUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'default' })
+            .then(response => {
+                if (!response.ok) throw new Error(`${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (data.error && !data.structures) throw new Error(data.error);
+
+                const structures = data.structures || {};
+                const structureCodes = data.structure_codes || {};
+                const pdbStructures = proteinCodes.map(code => structures[code] || '');
+
+                // Protein and structure (pdb / AF) codes for the non-null structures, in
+                // load order — these line up with Mol*'s loaded structures and name them
+                // in the hover tooltip.
+                const orderedProteinCodes = proteinCodes.filter(code => structures[code]);
+                const orderedStructureCodes = orderedProteinCodes.map(code => structureCodes[code] || '');
+
+                const missing = proteinCodes.filter(code => !structures[code]);
+                if (missing.length > 0) console.warn('Missing PDB:', missing);
+
+                const viewerStructures = [];
+                // Names Mol* should use for each structure, keyed by the blob URL it loads from
+                const blobUrlToStructureCode = {};
+                for (let j = 0; j < pdbStructures.length; j++){
+                    if (!pdbStructures[j]) {
+                        viewerStructures.push(null);
+                        continue;
+                    }
+                    const blobUrl = URL.createObjectURL(new Blob([pdbStructures[j]]));
+                    const code = structureCodes[proteinCodes[j]];
+                    if (code) blobUrlToStructureCode[blobUrl] = code;
+                    viewerStructures.push({
+                        customData: { url: blobUrl, format: 'pdb' },
+                        sequencePanel: false, landscape: true, rightPanel: false, structureTools: false, bgColor: 'white',
+                        subscribeEvents: true  // emits PDB.molstar.mouseover/mouseout, used to drive the plot cursor
+                    });
+                }
+
+                if (viewerStructures.length === 0) throw new Error('No PDB structures received');
+
+                const viewerInstance = new PDBeMolstarPlugin();
+                let firstStructIndex = viewerStructures.findIndex(s => s !== null);
+                if (firstStructIndex === -1) throw new Error('No valid PDB structures to load');
+
+                // Name structures by their PDB / AlphaFold code rather than the blob URL.
+                // Must happen before render(), which starts the first load.
+                labelStructureDownloads(viewerInstance, blobUrlToStructureCode);
+
+                viewerInstance.render(viewerContainer, viewerStructures[firstStructIndex]);
+                viewerContainer.style.filter = 'blur(3px)';
+
+                let structIndex = firstStructIndex + 1;
+                const coloringOption = document.getElementById('coloringSelect')?.value || 'sequence';
+                viewerInstance.events.loadComplete.subscribe(async () => {
+                    while (structIndex < viewerStructures.length && viewerStructures[structIndex] === null) {
+                        structIndex++;
+                    }
+                    if (structIndex < viewerStructures.length) {
+                        var _lmLoad = document.getElementById('loadingMessage');
+                        if (_lmLoad) _lmLoad.textContent = 'Loading 3D structures…';
+                        viewerInstance.visual.update(viewerStructures[structIndex], false);
+                        structIndex++;
+                    } else {
+                        var _lmRender = document.getElementById('loadingMessage');
+                        if (_lmRender) _lmRender.textContent = 'Rendering plots…';
+                        var protCount = {{protCount}};
+                        var structuresRefs = viewerInstance.getStructures();
+                        for (let i = 0; i < protCount * numberOfDifferentRepresentations; i++){
+                            let structureRef = structuresRefs[i]['structureRef']['cell']['sourceRef'];
+                            // Only delete the default polymer — we rebuild it via visual.select().
+                            // Water/ligand/ion/branched components are hidden below (not deleted)
+                            // so they can be toggled back if the user wants them later.
+                            viewerInstance.deleteStructureComponents(structureRef, ['polymer']);
+                        }
+                        // Polymer deleted; on-demand recolouring (applyMolstarColoring) reuses this.
+                        window._molstarPolymerDeleted = true;
+                        // Replace Mol*'s default tooltip with protein / structure / residue
+                        setupLociLabels(viewerInstance, orderedProteinCodes, orderedStructureCodes);
+                        await initializeRepresentations(molstarColoring, viewerInstance, coloringOption, {{protCount}});
+                        // Hide (not delete) water, ligands, ions, and other non-protein parts,
+                        // then recentre camera once the scene bounding box has settled.
+                        await hideNonProteinComponents(viewerInstance);
+                        // Open on the chosen view (Top view by default: looking onto the copper face)
+                        applyViewMode(null, viewerInstance);
+                        // Reverse sync: hovering a residue in Mol* moves the plot cursor
+                        setupMolstarToPlotHover(viewerInstance, molstarColoring);
+                        makePlotsFromJSON({{plots_data|safe}}).then(function() {
+                            hoverSequenceSelection({{protCount}});
+                            setTimeout(function() { if (window.initializeVerticalCursor) window.initializeVerticalCursor(); }, 200);
+                            // Sequence plots drawn and Mol* ready — reveal the page.
+                            if (window.hideComparisonLoadingOverlay) window.hideComparisonLoadingOverlay();
+                        }).catch(function(err) {
+                            console.error('Error in makePlotsFromJSON:', err);
+                            setTimeout(function() { if (window.initializeVerticalCursor) window.initializeVerticalCursor(); }, 1000);
+                            if (window.hideComparisonLoadingOverlay) window.hideComparisonLoadingOverlay();
+                        });
+                        toggleProteinVisibility(viewerInstance, numberOfDifferentRepresentations, {{protCount}});
+                        if (window._hhResumeAfterLoad) {
+                            window._hhResumeAfterLoad = false;
+                            var hhBox = document.getElementById('holeHoppingPathCheckbox');
+                            if (hhBox && hhBox.checked) toggleHoleHoppingPaths(true);
+                        }
+                    }
+                });
+
+                window.viewerInstance = viewerInstance;
+                window.numberOfDifferentRepresentations = numberOfDifferentRepresentations;
+                setTimeout(function() {
+                    if (typeof setupProteinVisibilityDropdown === 'function') setupProteinVisibilityDropdown({{protCount}});
+                }, 500);
+            })
+            .catch(error => {
+                console.error('Error loading PDB structures:', error);
+                if (window.hideComparisonLoadingOverlay) window.hideComparisonLoadingOverlay();
+                viewerContainer.innerHTML = `
+                    <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;">
+                        <div style="text-align:center;color:#d32f2f;">
+                            <p><strong>Error loading 3D structures</strong></p>
+                            <p style="font-size:0.9em;margin-top:10px;">${error.message}</p>
+                            <button onclick="location.reload()" style="margin-top:15px;padding:8px 16px;background:#569976;color:white;border:none;border-radius:4px;cursor:pointer;">Reload Page</button>
+                        </div>
+                </div>
+            `;
+            });
+        } // end loadStructures
+
+        function reloadStructures(protonated) {
+            // The path overlay reads the viewer on every frame: pause it while the viewer is
+            // replaced, and switch it back on once the new one is loaded and coloured.
+            if (hhPathsVisible) {
+                toggleHoleHoppingPaths(false);
+                window._hhResumeAfterLoad = true;
+            }
+            if (window.viewerInstance) {
+                try { window.viewerInstance.plugin && window.viewerInstance.plugin.dispose && window.viewerInstance.plugin.dispose(); } catch(e) {}
+                window.viewerInstance = null;
+            }
+            loadStructures(protonated);
+        }
+
+        loadStructures(false);
+
+        window.addEventListener('load', () => {
+            syncScrollbars();
+        });
+
+        function changeHydrophobicityScale(scaleName) {
+            currentHydrophobScale = scaleName;
+            window.currentHydrophobScale = scaleName;
+
+            // Find the Hydrophobicity plot section and re-fetch its plots for the
+            // chosen scale (scales are no longer inlined; served from the cache).
+            var plotSections = document.querySelectorAll('.dropdownPlots');
+            for (var s = 0; s < plotSections.length; s++) {
+                if (plotSections[s].getAttribute('data-plot-type') === 'Hydrophobicity') {
+                    var inside = plotSections[s].querySelector('.insideDropdown');
+                    var scrollable = plotSections[s].querySelector('.scrollable-plots-column');
+                    // Only (re)load if the section has been opened at least once; if it
+                    // hasn't, its own lazy load will pick up currentHydrophobScale.
+                    if (scrollable && inside && inside.getAttribute('data-loaded') === '1'
+                        && typeof loadSectionPlots === 'function') {
+                        loadSectionPlots(inside, scrollable, 'Hydrophobicity', scaleName);
+                    }
+                    break;
+                }
+            }
+
+            // The 3D colouring of this scale (fetched once), applied if the viewer is coloured
+            // by hydrophobicity now and kept for the next time otherwise
+            fetchColoring('hydrophobicityScales', scaleName).then(function (coloring) {
+                if (!coloring || currentHydrophobScale !== scaleName) return;
+                molstarColoring.hydrophobicity = coloring;
+                var coloringSelect = document.getElementById('coloringSelect');
+                if (coloringSelect && coloringSelect.value === 'hydrophobicity' && window.viewerInstance) {
+                    applyMolstarColoring('hydrophobicity', {{protCount}});
+                }
+            });
+        }
+
+        // A 3D colouring the page does not carry (another hydrophobicity scale or flexibility
+        // method), fetched once and kept in molstarColoring[kind][name]. Resolves to null on failure.
+        function fetchColoring(kind, name) {
+            if (!molstarColoring[kind]) molstarColoring[kind] = {};
+            if (molstarColoring[kind][name]) return Promise.resolve(molstarColoring[kind][name]);
+            var url = '/catalogue/compare/coloring/?kind=' + encodeURIComponent(kind)
+                + '&name=' + encodeURIComponent(name)
+                + '&ids=' + encodeURIComponent((window.protIdList || []).join(','));
+            return fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                if (data.error) throw new Error(data.error);
+                molstarColoring[kind][name] = data.coloring;
+                return data.coloring;
+            }).catch(function (error) {
+                console.error('Error loading 3D colouring:', error);
+                return null;
+            });
+        }
+
+        // Point molstarColoring.flexibility at the chosen method's data, scaled to the current
+        // view: catalytic range by default, full-protein range when "Full length" is on.
+        // The colouring of the default method in the catalytic view is the one the page carries.
+        // Returns a promise, resolved once molstarColoring.flexibility holds the right data.
+        var _flexColoringOnPage = molstarColoring.flexibility;
+        function setFlexColoringForView(method) {
+            var names = molstarColoring.flexibilityMethodNames || [];
+            var defaultMethod = names.indexOf('cabsflex') !== -1 ? 'cabsflex' : names[0];
+            method = method || currentFlexMethod || defaultMethod;
+            if (!method) return Promise.resolve();
+            var full = document.getElementById('showFullStructure') && document.getElementById('showFullStructure').checked;
+            if (!full && method === defaultMethod) {
+                molstarColoring.flexibility = _flexColoringOnPage;
+                return Promise.resolve();
+            }
+            return fetchColoring(full ? 'flexibilityMethodsFull' : 'flexibilityMethods', method).then(function (coloring) {
+                var nowFull = document.getElementById('showFullStructure') && document.getElementById('showFullStructure').checked;
+                // the view or the method may have changed while this was on its way
+                if (coloring && !!nowFull === !!full && (currentFlexMethod || defaultMethod) === method) {
+                    molstarColoring.flexibility = coloring;
+                }
+            });
+        }
+        window.setFlexColoringForView = setFlexColoringForView;
+
+        // Switch which flexibility measure (cabsflex/gnm/md_rmsf/bfactor/plddt) is shown, in
+        // both the Flexibility plot and the 3D colouring. Mirrors changeHydrophobicityScale.
+        function changeFlexibilityMethod(method) {
+            currentFlexMethod = method;
+            window.currentFlexMethod = method;
+
+            // Re-fetch the Flexibility plot for the chosen method (if the section is open).
+            var plotSections = document.querySelectorAll('.dropdownPlots');
+            for (var s = 0; s < plotSections.length; s++) {
+                if (plotSections[s].getAttribute('data-plot-type') === 'Flexibility') {
+                    var inside = plotSections[s].querySelector('.insideDropdown');
+                    var scrollable = plotSections[s].querySelector('.scrollable-plots-column');
+                    if (scrollable && inside && inside.getAttribute('data-loaded') === '1'
+                        && typeof loadSectionPlots === 'function') {
+                        loadSectionPlots(inside, scrollable, 'Flexibility', method);
+                    }
+                    break;
+                }
+            }
+
+            // Swap the 3D flexibility colouring data (for the current view); re-apply if the
+            // viewer is currently coloured by flexibility.
+            setFlexColoringForView(method).then(function () {
+                var coloringSelect = document.getElementById('coloringSelect');
+                if (coloringSelect && coloringSelect.value === 'flexibility' && window.viewerInstance) {
+                    applyMolstarColoring('flexibility', {{protCount}});
+                }
+            });
+        }
+
+        // ── Hole-hopping path overlay ──────────────────────────────
+
+        var hhPathsVisible = false;
+        var hhPathAnimFrame = null;
+
+        // Ring atoms for aromatic residues involved in hole hopping
+        var RING_ATOMS = {
+            'HIS': ['CG', 'ND1', 'CD2', 'CE1', 'NE2'],
+            'TYR': ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ'],
+            'TRP': ['CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
+            'PHE': ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ']
+        };
+        // PDB2PQR's histidine names in the protonated structures
+        RING_ATOMS.HID = RING_ATOMS.HIE = RING_ATOMS.HIP = RING_ATOMS.HIS;
+
+        var HH_METAL_ELEMENTS = ['CU', 'ZN', 'NI', 'MG', 'CO', 'MN', 'FE', 'MO'];
+
+        // Path geometry of one Mol* structure: aromatic ring centres and metal ion positions (kept
+        // in separate maps keyed by residue number, since a metal can share its number with a
+        // residue), plus the histidine-brace nitrogens used to place a pseudo-copper when the
+        // structure has no metal. braceResidues = the two brace His residue numbers.
+        // Positions don't change once a structure is loaded, so each structure's geometry is
+        // computed once (a new or reloaded structure is a new data object, hence the WeakMap).
+        var hhGeometryCache = new WeakMap();
+        function getRingCenterPositions(plugin, structureIndex, braceResidues) {
+            try {
+                var structs = plugin.managers.structure.hierarchy.current.structures;
+                var cellObj = structs && structs.length
+                    ? structs[structureIndex < structs.length ? structureIndex : 0].cell.obj : null;
+                if (!cellObj) return {rings: {}, metals: {}, braceN: []};
+                var cached = hhGeometryCache.get(cellObj.data);
+                if (cached) return cached;
+                var computed = computeRingCenterPositions(plugin, structureIndex, braceResidues);
+                hhGeometryCache.set(cellObj.data, computed);
+                return computed;
+            } catch (e) {
+                return {rings: {}, metals: {}, braceN: []};
+            }
+        }
+
+        function computeRingCenterPositions(plugin, structureIndex, braceResidues) {
+            var geometry = {rings: {}, metals: {}, braceN: []};
+            var ringAtomAccum = {}; // residue_number -> {sx, sy, sz, count}
+            var brace = (braceResidues || []).slice().sort(function (a, b) { return a - b; });
+            try {
+                var structs = plugin.managers.structure.hierarchy.current.structures;
+                if (!structs || structs.length === 0) return geometry;
+                var idx = structureIndex < structs.length ? structureIndex : 0;
+                var cellObj = structs[idx].cell.obj;
+                if (!cellObj) return geometry;
+                var structData = cellObj.data;
+
+                for (var ui = 0; ui < structData.units.length; ui++) {
+                    var unit = structData.units[ui];
+                    var elements = unit.elements;
+                    var conf = unit.conformation;
+                    var atomicHier = unit.model.atomicHierarchy;
+                    var atoms = atomicHier.atoms;
+                    var residues = atomicHier.residues;
+
+                    for (var i = 0; i < elements.length; i++) {
+                        var eI = elements[i];
+                        var atomName = atoms.label_atom_id.value(eI);
+                        var compName = atoms.label_comp_id.value(eI).toUpperCase();
+                        var element = atoms.type_symbol ? String(atoms.type_symbol.value(eI)).toUpperCase() : '';
+                        var rI = atomicHier.residueAtomSegments.index[eI];
+                        var resNum = residues.auth_seq_id ? residues.auth_seq_id.value(rI) : residues.label_seq_id.value(rI);
+
+                        if (HH_METAL_ELEMENTS.indexOf(element) !== -1 || compName.startsWith('CU')) {
+                            geometry.metals[resNum] = {x: conf.x(eI), y: conf.y(eI), z: conf.z(eI)};
+                            continue;
+                        }
+
+                        // Pseudo-copper atoms, as in the pipeline: the His-1 amine N plus the
+                        // imidazole nitrogens of both brace histidines (HIS/HIE/HID/HIC names).
+                        if (brace.length === 2 && compName.indexOf('HI') === 0
+                            && ((resNum === brace[0] && (atomName === 'N' || atomName === 'ND1' || atomName === 'NE2'))
+                                || (resNum === brace[1] && (atomName === 'ND1' || atomName === 'NE2')))) {
+                            geometry.braceN.push({x: conf.x(eI), y: conf.y(eI), z: conf.z(eI)});
+                        }
+
+                        // Accumulate ring atom positions
+                        var ringSet = RING_ATOMS[compName];
+                        if (ringSet && ringSet.indexOf(atomName) !== -1) {
+                            if (!ringAtomAccum[resNum]) {
+                                ringAtomAccum[resNum] = {sx: 0, sy: 0, sz: 0, count: 0};
+                            }
+                            ringAtomAccum[resNum].sx += conf.x(eI);
+                            ringAtomAccum[resNum].sy += conf.y(eI);
+                            ringAtomAccum[resNum].sz += conf.z(eI);
+                            ringAtomAccum[resNum].count++;
+                        }
+                    }
+                }
+
+                // Compute ring centers
+                for (var rn in ringAtomAccum) {
+                    var a = ringAtomAccum[rn];
+                    if (a.count > 0) {
+                        geometry.rings[rn] = {x: a.sx / a.count, y: a.sy / a.count, z: a.sz / a.count};
+                    }
+                }
+            } catch(e) {
+                console.error('HH path: Could not extract ring positions:', e);
+            }
+            return geometry;
+        }
+
+        // Where a path's metal end node is drawn: the metal atom with that residue number, or else
+        // a pseudo-copper at the centre of the brace nitrogens (structures without copper, e.g.
+        // AlphaFold models, whose hole hopping ran with such a pseudo-Cu).
+        function hhMetalPosition(geometry, resNum) {
+            if (geometry.metals[resNum]) return geometry.metals[resNum];
+            var n = geometry.braceN.length;
+            if (n < 2) return null;
+            var s = {x: 0, y: 0, z: 0};
+            geometry.braceN.forEach(function (p) { s.x += p.x; s.y += p.y; s.z += p.z; });
+            return {x: s.x / n, y: s.y / n, z: s.z / n};
+        }
+
+        function worldToNDC(plugin, px, py, pz) {
+            // Returns normalized device coordinates {ndcX, ndcY} in range [-1, 1]
+            var cam = plugin.canvas3d.camera;
+            var v = cam.view;
+            var p = cam.projection;
+            if (!v || !p) {
+                if (!worldToNDC._logged) {
+                    console.warn('Hole hopping paths: camera view/projection not available');
+                    worldToNDC._logged = true;
+                }
+                return null;
+            }
+
+            // Multiply projection * view (column-major 4x4)
+            var vx = v[0]*px + v[4]*py + v[8]*pz + v[12];
+            var vy = v[1]*px + v[5]*py + v[9]*pz + v[13];
+            var vz = v[2]*px + v[6]*py + v[10]*pz + v[14];
+            var vw = v[3]*px + v[7]*py + v[11]*pz + v[15];
+
+            var clipX = p[0]*vx + p[4]*vy + p[8]*vz + p[12]*vw;
+            var clipY = p[1]*vx + p[5]*vy + p[9]*vz + p[13]*vw;
+            var clipW = p[3]*vx + p[7]*vy + p[11]*vz + p[15]*vw;
+
+            if (Math.abs(clipW) < 1e-6) return null;
+            return { ndcX: clipX / clipW, ndcY: clipY / clipW };
+        }
+
+        var CU_COLOR = 'rgba(245, 116, 4, 0.95)';   // vivid orange; orange/brown hues are kept out of the protein palette
+
+        // Per-protein hole-hopping colour (the same pair as the 3D residues and the plot row):
+        // role 'bridge' = the protein's hue, 'donor' (surface-exposed) = a darker shade of it.
+        function hhColor(pi, role, alpha) {
+            var pair = (molstarColoring.holeHoppingColors || [])[pi] || {};
+            var c = pair[role] || {r: 137, g: 135, b: 129};
+            return 'rgba(' + c.r + ', ' + c.g + ', ' + c.b + ', ' + alpha + ')';
+        }
+
+        // Hovering a path dot highlights every path through that residue, bold from the residue on
+        // to the metal, and fades the other paths. The overlay ignores the mouse (Mol* keeps its own
+        // interaction), so the pointer is hit-tested against the dots drawn in the last frame.
+        var hhDotHits = [];       // last frame's dots: {pi, resNum, role, name, x, y}, CSS px in the overlay
+        var hhHover = null;       // hovered residue dot: {pi, resNum, name}, or null
+        var HH_HOVER_RADIUS = 9;  // CSS px
+
+        function hhInstallHoverListener() {
+            var canvas = document.getElementById('holeHoppingPathCanvas');
+            var frame = canvas && canvas.parentElement;
+            if (!frame || frame.dataset.hhHover) return;
+            frame.dataset.hhHover = '1';
+            frame.addEventListener('mousemove', function (e) {
+                var hit = null;
+                if (hhPathsVisible) {
+                    var rect = canvas.getBoundingClientRect();
+                    var mx = e.clientX - rect.left, my = e.clientY - rect.top, bestDist = HH_HOVER_RADIUS;
+                    hhDotHits.forEach(function (dot) {
+                        var dist = Math.hypot(dot.x - mx, dot.y - my);
+                        if (dot.role !== 'cu' && dist <= bestDist) { hit = dot; bestDist = dist; }
+                    });
+                }
+                hhHover = hit ? {pi: hit.pi, resNum: hit.resNum, name: hit.name} : null;
+                window.hhHover = hhHover;
+            });
+            frame.addEventListener('mouseleave', function () { hhHover = null; window.hhHover = null; });
+        }
+
+        // Metal end nodes get their own key, so a metal numbered like a residue can't collide with it.
+        function hhNodeKey(node) {
+            return (node.is_cu ? 'cu' : '') + node.residue_number;
+        }
+
+        function hhStrokePath(ctx, pathData, screenPositions, fromIdx, style, width) {
+            var started = false;
+            ctx.beginPath();
+            for (var ri = fromIdx; ri < pathData.length; ri++) {
+                var sp = screenPositions[hhNodeKey(pathData[ri])];
+                if (!sp) continue;
+                if (started) { ctx.lineTo(sp.x, sp.y); } else { ctx.moveTo(sp.x, sp.y); started = true; }
+            }
+            ctx.strokeStyle = style;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        // Draws the paths on the overlay, or with `target` = {ctx, width, height} onto an image
+        // of the whole viewer (the PNG export), with lines and dots scaled to look as on screen.
+        function drawHoleHoppingPaths(target) {
+            var canvas = document.getElementById('holeHoppingPathCanvas');
+            if (!canvas || !hhPathsVisible) return;
+            if (!target) hhInstallHoverListener();
+
+            var plugin = window.viewerInstance && window.viewerInstance.plugin;
+            if (!plugin || !plugin.canvas3d) return;
+
+            var glCanvas = plugin.canvas3d.webgl.gl.canvas;
+            var glRect = glCanvas.getBoundingClientRect();
+            var overlayRect = canvas.getBoundingClientRect();
+            var dpr = window.devicePixelRatio || 1;
+            var ctx, k = 1;
+            if (target) {
+                ctx = target.ctx;
+                k = target.width / (glRect.width * dpr);
+            } else {
+                // Match overlay pixel resolution to its CSS display size * devicePixelRatio
+                ctx = canvas.getContext('2d');
+                canvas.width = overlayRect.width * dpr;
+                canvas.height = overlayRect.height * dpr;
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            var paths = molstarColoring.holeHoppingPaths;
+            if (!paths) return;
+
+            var protCount = {{protCount}};
+            // Visibility keyed by protein index (checkbox value), robust to table sorting.
+            var visArr = window.getProteinVisibility ? window.getProteinVisibility(protCount) : [];
+            var dots = [];
+            var highlighted = 0;
+
+            for (var pi = 0; pi < protCount; pi++) {
+                if (!visArr[pi]) continue;
+                if (!paths[pi] || paths[pi].length === 0) continue;
+
+                var structIdx = pi * numberOfDifferentRepresentations;
+                var geometry = getRingCenterPositions(plugin, structIdx, (molstarColoring.histidineBrace || [])[pi]);
+
+                // Classify every node across ALL paths: the metal end node is 'cu'; a residue that
+                // starts any path is a donor, any other residue a bridge.
+                var roles = {}, nodes = {};
+                for (var pathIdx = 0; pathIdx < paths[pi].length; pathIdx++) {
+                    var pathData = paths[pi][pathIdx].path;
+                    for (var ri = 0; ri < pathData.length; ri++) {
+                        var key = hhNodeKey(pathData[ri]);
+                        nodes[key] = pathData[ri];
+                        if (pathData[ri].is_cu) {
+                            roles[key] = 'cu';
+                        } else if (ri === 0) {
+                            roles[key] = 'donor';
+                        } else if (roles[key] !== 'donor') {
+                            roles[key] = 'bridge';
+                        }
+                    }
+                }
+
+                // Project every node to the overlay: ring centres for residues; the metal (or the
+                // pseudo-copper) for the end node. NDC [-1,1] -> overlay CSS px -> canvas px.
+                var screenPositions = {}; // key -> {cssX, cssY, x, y}
+                for (var key in roles) {
+                    var node = nodes[key];
+                    var pos3d = node.is_cu ? hhMetalPosition(geometry, node.residue_number) : geometry.rings[node.residue_number];
+                    if (!pos3d) continue;
+                    var ndc = worldToNDC(plugin, pos3d.x, pos3d.y, pos3d.z);
+                    if (!ndc) continue;
+                    var cssX = (ndc.ndcX * 0.5 + 0.5) * glRect.width + (glRect.left - overlayRect.left);
+                    var cssY = (1.0 - (ndc.ndcY * 0.5 + 0.5)) * glRect.height + (glRect.top - overlayRect.top);
+                    screenPositions[key] = target
+                        ? {x: (ndc.ndcX * 0.5 + 0.5) * target.width, y: (0.5 - ndc.ndcY * 0.5) * target.height}
+                        : {cssX: cssX, cssY: cssY, x: cssX * dpr, y: cssY * dpr};
+                }
+
+                // Lines in the protein's colour. While a dot is hovered, paths through that residue
+                // are drawn bold in the darker shade from the residue to the metal; the rest fade.
+                var hover = hhHover && hhHover.pi === pi ? hhHover : null;
+                var hot = {}; // node keys on a highlighted stretch
+                for (var pathIdx = 0; pathIdx < paths[pi].length; pathIdx++) {
+                    var pathData = paths[pi][pathIdx].path;
+                    var fromIdx = -1;
+                    if (hover) {
+                        for (var ri = 0; ri < pathData.length; ri++) {
+                            if (!pathData[ri].is_cu && pathData[ri].residue_number === hover.resNum) { fromIdx = ri; break; }
+                        }
+                    }
+                    hhStrokePath(ctx, pathData, screenPositions, 0,
+                                 hhColor(pi, 'bridge', hhHover && fromIdx === -1 ? 0.15 : 0.6), 2 * k);
+                    if (fromIdx !== -1) {
+                        highlighted++;
+                        hhStrokePath(ctx, pathData, screenPositions, fromIdx, hhColor(pi, 'donor', 1), 5 * k);
+                        for (var ri = fromIdx; ri < pathData.length; ri++) hot[hhNodeKey(pathData[ri])] = true;
+                    }
+                }
+
+                // Dots once per node; the metal is always copper-coloured
+                for (var key in roles) {
+                    var sp = screenPositions[key];
+                    if (!sp) continue;
+                    var role = roles[key], node = nodes[key];
+                    var isHovered = hover && !node.is_cu && node.residue_number === hover.resNum;
+                    ctx.globalAlpha = hhHover && !hot[key] ? 0.35 : 1;
+                    ctx.fillStyle = role === 'cu' ? CU_COLOR : hhColor(pi, role, 0.95);
+                    ctx.beginPath();
+                    ctx.arc(sp.x, sp.y, (role === 'cu' || isHovered ? 7 : 5) * k, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                    ctx.lineWidth = k;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                    dots.push({pi: pi, resNum: node.residue_number, role: role, name: node.name, x: sp.cssX, y: sp.cssY});
+                }
+            }
+            if (target) return;
+            hhDotHits = dots;
+            window.hhDotHits = dots;
+            window.hhHighlightedPaths = highlighted;
+        }
+
+        function startHHPathRedrawLoop() {
+            if (hhPathAnimFrame) return;
+            function loop() {
+                if (!hhPathsVisible) { hhPathAnimFrame = null; return; }
+                try { drawHoleHoppingPaths(); } catch (e) { /* viewer busy: try the next frame */ }
+                hhPathAnimFrame = requestAnimationFrame(loop);
+            }
+            hhPathAnimFrame = requestAnimationFrame(loop);
+        }
+
+        function toggleHoleHoppingPaths(checked) {
+            hhPathsVisible = checked;
+            var canvas = document.getElementById('holeHoppingPathCanvas');
+            if (checked) {
+                canvas.style.display = 'block';
+                startHHPathRedrawLoop();
+            } else {
+                canvas.style.display = 'none';
+                if (hhPathAnimFrame) {
+                    cancelAnimationFrame(hhPathAnimFrame);
+                    hhPathAnimFrame = null;
+                }
+                var ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // ── Export functions ──
+
+        function stripProteinNumber(code) {
+            // Remove leading number prefix like "016_" from protein codes
+            return code.replace(/^\d+_/, '');
+        }
+
+        // The view as Mol* renders it again at EXPORT_SCALE times the viewer's size (antialiased,
+        // not the screen image stretched), with the hole hopping paths drawn on top when shown.
+        var EXPORT_SCALE = 3;
+        async function exportMolstarPNG() {
+            var plugin = window.viewerInstance && window.viewerInstance.plugin;
+            var helper = plugin && plugin.helpers && plugin.helpers.viewportScreenshot;
+            if (!plugin || !plugin.canvas3d || !helper) { alert('Mol* viewer not ready'); return; }
+            var gl = plugin.canvas3d.webgl.gl;
+            var webgl = plugin.canvas3d.webgl;
+            var maxSize = Math.floor(Math.min(webgl.maxRenderbufferSize || 8192, webgl.maxTextureSize || 8192) / 2);
+            var scale = Math.min(EXPORT_SCALE, maxSize / gl.drawingBufferWidth, maxSize / gl.drawingBufferHeight);
+            var width = Math.round(gl.drawingBufferWidth * scale);
+            var height = Math.round(gl.drawingBufferHeight * scale);
+
+            var before = helper.values;
+            try {
+                helper.resetCrop();
+                helper.behaviors.values.next(Object.assign({}, before, {
+                    resolution: {name: 'custom', params: {width: width, height: height}},
+                    transparent: false, axes: false
+                }));
+                var uri = await helper.getImageDataUri();
+                var image = new Image();
+                await new Promise(function (resolve, reject) { image.onload = resolve; image.onerror = reject; image.src = uri; });
+
+                var composite = document.createElement('canvas');
+                composite.width = image.naturalWidth;
+                composite.height = image.naturalHeight;
+                var ctx = composite.getContext('2d');
+                ctx.drawImage(image, 0, 0);
+                if (hhPathsVisible) drawHoleHoppingPaths({ctx: ctx, width: composite.width, height: composite.height});
+                composite.toBlob(function (blob) {
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'molstar_view.png';
+                    a.click();
+                    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+                }, 'image/png');
+            } catch (e) {
+                console.error('Mol* image export failed:', e);
+                alert('The image could not be made: ' + (e && e.message ? e.message : e));
+            } finally {
+                helper.behaviors.values.next(before);
+            }
+        }
+
+        function exportPlotData(plotType) {
+            // the view the plots show: catalytic domain or full length
+            var cb = document.getElementById('showFullStructure');
+            var view = cb && cb.checked ? 'full' : 'catalytic';
+            var data = (exportData[view] || {})[plotType];
+            if (!data) { alert('No export data available for ' + plotType); return; }
+            var ext = data.format === 'fasta' ? '.fasta' : '.csv';
+            var mime = data.format === 'fasta' ? 'text/plain' : 'text/csv';
+            var filename = plotType.toLowerCase().replace(/ /g, '_') + '_'
+                + (view === 'full' ? 'full_length' : 'catalytic_domain') + ext;
+            var blob = new Blob([data.content], {type: mime});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function exportHoleHoppingData() {
+            var format = document.getElementById('hhExportFormat').value;
+            if (format === 'csv') exportHoleHoppingCSV();
+            else if (format === 'pml') exportHoleHoppingPyMOL();
+        }
+
+        function exportHoleHoppingCSV() {
+            var paths = molstarColoring.holeHoppingPaths;
+            if (!paths) { alert('No hole hopping path data available'); return; }
+            var protIds = window.protIdList;
+            var lines = ['protein,path_rank,mean_residence_time,step,residue_name,residue_number,role'];
+            for (var pi = 0; pi < paths.length; pi++) {
+                if (!paths[pi] || paths[pi].length === 0) continue;
+                var protName = stripProteinNumber(protIds[pi] || ('protein_' + pi));
+                var donorSet = {};
+                for (var j = 0; j < paths[pi].length; j++) {
+                    var p = paths[pi][j].path;
+                    if (p.length > 0 && !p[0].is_cu) donorSet[p[0].residue_number] = true;
+                }
+                for (var j = 0; j < paths[pi].length; j++) {
+                    var pathEntry = paths[pi][j];
+                    var p = pathEntry.path;
+                    for (var ri = 0; ri < p.length; ri++) {
+                        var role = p[ri].is_cu ? 'copper' : (donorSet[p[ri].residue_number] ? 'donor' : 'bridge');
+                        lines.push([
+                            protName,
+                            pathEntry.rank,
+                            pathEntry.mean_residence_time,
+                            ri + 1,
+                            p[ri].name,
+                            p[ri].residue_number,
+                            role
+                        ].join(','));
+                    }
+                }
+            }
+            var blob = new Blob([lines.join('\n')], {type: 'text/csv'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'hole_hopping_paths.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function exportHoleHoppingPyMOL() {
+            var paths = molstarColoring.holeHoppingPaths;
+            if (!paths) { alert('No hole hopping path data available'); return; }
+            var protIds = window.protIdList;
+            var pml = [];
+            pml.push('# PyMOL script for hole hopping pathways');
+            pml.push('# Generated by LPMOcat');
+            pml.push('# Paths are drawn through aromatic ring centers, matching the web viewer.');
+            pml.push('');
+            // Each protein's hole-hopping colours are defined in its own section below.
+            pml.push('set_color hh_copper, [0.961, 0.455, 0.016]');
+            pml.push('');
+            pml.push('python');
+            pml.push('from pymol.cgo import BEGIN, END, LINES, LINEWIDTH, VERTEX, COLOR, SPHERE');
+            pml.push('from pymol import cmd');
+            pml.push('');
+            pml.push('RING_ATOMS = {');
+            pml.push('    "PHE": "name CG+CD1+CD2+CE1+CE2+CZ",');
+            pml.push('    "TYR": "name CG+CD1+CD2+CE1+CE2+CZ",');
+            pml.push('    "TRP": "name CG+CD1+CD2+NE1+CE2+CE3+CZ2+CZ3+CH2",');
+            pml.push('    "HIS": "name CG+ND1+CD2+CE1+NE2",');
+            pml.push('}');
+            pml.push('');
+            pml.push('METALS = "elem Cu+Zn+Ni+Mg+Co+Mn+Fe+Mo"');
+            pml.push('BRACE = {}  # object -> (His-1, His-2) brace residue numbers');
+            pml.push('');
+            pml.push('def get_cu_point(obj, resi):');
+            pml.push('    # The metal numbered like the path end node, or else a pseudo-copper at the centre of');
+            pml.push('    # the brace nitrogens (His-1 N, ND1, NE2; His-2 ND1, NE2), as in the web viewer.');
+            pml.push('    metal = cmd.get_model("{} and resi {} and {}".format(obj, resi, METALS)).atom');
+            pml.push('    if metal:');
+            pml.push('        return metal[0].coord');
+            pml.push('    brace = BRACE.get(obj)');
+            pml.push('    if not brace:');
+            pml.push('        return None');
+            pml.push('    sel = "{0} and ((resi {1} and name N+ND1+NE2) or (resi {2} and name ND1+NE2))".format(obj, brace[0], brace[1])');
+            pml.push('    return cmd.centerofmass(sel) if cmd.count_atoms(sel) >= 2 else None');
+            pml.push('');
+            pml.push('def show_copper(obj, resi):');
+            pml.push('    pt = get_cu_point(obj, resi)');
+            pml.push('    if pt:');
+            pml.push('        name = obj + "_cu"');
+            pml.push('        cmd.pseudoatom(name, pos=list(pt), elem="Cu")');
+            pml.push('        cmd.show("spheres", name)');
+            pml.push('        cmd.color("hh_copper", name)');
+            pml.push('        cmd.set("sphere_scale", 0.5, name)');
+            pml.push('');
+            pml.push('def get_path_point(obj, resi, is_cu=False):');
+            pml.push('    if is_cu:');
+            pml.push('        return get_cu_point(obj, resi)');
+            pml.push('    stored_resn = []');
+            pml.push('    cmd.iterate("{} and resi {} and name CA".format(obj, resi), "stored_resn.append(resn)", space={"stored_resn": stored_resn})');
+            pml.push('    resn = stored_resn[0].upper() if stored_resn else ""');
+            pml.push('    if resn in RING_ATOMS:');
+            pml.push('        sel = "{} and resi {} and ({})".format(obj, resi, RING_ATOMS[resn])');
+            pml.push('        try:');
+            pml.push('            com = cmd.centerofmass(sel)');
+            pml.push('            if com:');
+            pml.push('                return com');
+            pml.push('        except:');
+            pml.push('            pass');
+            pml.push('    try:');
+            pml.push('        return cmd.centerofmass("{} and resi {} and name CA".format(obj, resi))');
+            pml.push('    except:');
+            pml.push('        return None');
+            pml.push('');
+            pml.push('def draw_path_cgo(obj, name, residues, color=None, radius=0.15):');
+            pml.push('    if color is None:');
+            pml.push('        color = [0.6, 0.6, 0.6]');
+            pml.push('    points = []');
+            pml.push('    for resi, is_cu in residues:');
+            pml.push('        pt = get_path_point(obj, resi, is_cu)');
+            pml.push('        if pt:');
+            pml.push('            points.append(pt)');
+            pml.push('    if len(points) < 2:');
+            pml.push('        return');
+            pml.push('    cgo = [BEGIN, LINES, COLOR] + color + [LINEWIDTH, 3.0]');
+            pml.push('    for i in range(len(points) - 1):');
+            pml.push('        cgo += [VERTEX] + list(points[i]) + [VERTEX] + list(points[i + 1])');
+            pml.push('    cgo += [END]');
+            pml.push('    for pt in points:');
+            pml.push('        cgo += [COLOR] + color + [SPHERE] + list(pt) + [radius]');
+            pml.push('    cmd.load_cgo(cgo, name)');
+            pml.push('python end');
+            pml.push('');
+
+            for (var pi = 0; pi < paths.length; pi++) {
+                if (!paths[pi] || paths[pi].length === 0) continue;
+                var protName = stripProteinNumber(protIds[pi] || ('protein_' + pi));
+                var colorKey = 'hh_' + protName.replace(/[^A-Za-z0-9_]/g, '_');
+                var hhPair = (molstarColoring.holeHoppingColors || [])[pi] || {};
+                var pymolRGB = function (c) {
+                    c = c || {r: 137, g: 135, b: 129};
+                    return '[' + [c.r, c.g, c.b].map(function (v) { return (v / 255).toFixed(3); }).join(', ') + ']';
+                };
+                pml.push('# --- ' + protName + ' ---');
+                pml.push('set_color ' + colorKey + '_donor, ' + pymolRGB(hhPair.donor));
+                pml.push('set_color ' + colorKey + '_bridge, ' + pymolRGB(hhPair.bridge));
+                pml.push('cmd.load("' + protName + '.pdb", "' + protName + '")');
+                pml.push('cmd.color("white", "' + protName + '")');
+                pml.push('');
+
+                var donorSet = {};
+                for (var j = 0; j < paths[pi].length; j++) {
+                    var p = paths[pi][j].path;
+                    if (p.length > 0 && !p[0].is_cu) donorSet[p[0].residue_number] = true;
+                }
+
+                var allResidues = {};
+                for (var j = 0; j < paths[pi].length; j++) {
+                    var p = paths[pi][j].path;
+                    for (var ri = 0; ri < p.length; ri++) {
+                        if (!p[ri].is_cu) allResidues[p[ri].residue_number] = donorSet[p[ri].residue_number] ? 'donor' : 'bridge';
+                    }
+                }
+
+                var donorResidues = [];
+                var bridgeResidues = [];
+                for (var rn in allResidues) {
+                    if (allResidues[rn] === 'donor') donorResidues.push(rn);
+                    else bridgeResidues.push(rn);
+                }
+                if (donorResidues.length > 0) {
+                    var selName = protName + '_hh_donors';
+                    pml.push('cmd.select("' + selName + '", "' + protName + ' and resi ' + donorResidues.join('+') + '")');
+                    pml.push('cmd.show("sticks", "' + selName + '")');
+                    pml.push('cmd.color("' + colorKey + '_donor", "' + selName + '")');
+                }
+                if (bridgeResidues.length > 0) {
+                    var selName = protName + '_hh_bridges';
+                    pml.push('cmd.select("' + selName + '", "' + protName + ' and resi ' + bridgeResidues.join('+') + '")');
+                    pml.push('cmd.show("sticks", "' + selName + '")');
+                    pml.push('cmd.color("' + colorKey + '_bridge", "' + selName + '")');
+                }
+                pml.push('');
+
+                // Copper (a pseudo-copper when the structure has none), then the paths through
+                // ring centres, drawn with CGO
+                var hhBrace = ((molstarColoring.histidineBrace || [])[pi] || []).slice().sort(function (a, b) { return a - b; });
+                var metalNode = null;
+                paths[pi].forEach(function (pe) { pe.path.forEach(function (r) { if (r.is_cu && !metalNode) metalNode = r; }); });
+                pml.push('python');
+                if (hhBrace.length === 2) pml.push('BRACE["' + protName + '"] = (' + hhBrace[0] + ', ' + hhBrace[1] + ')');
+                if (metalNode) pml.push('show_copper("' + protName + '", ' + metalNode.residue_number + ')');
+                for (var j = 0; j < paths[pi].length; j++) {
+                    var pathEntry = paths[pi][j];
+                    var p = pathEntry.path;
+                    if (p.length < 2) continue;
+                    var cgoName = protName + '_path_' + (j + 1);
+                    pml.push('# Path rank ' + pathEntry.rank + ' (mean residence time: ' + pathEntry.mean_residence_time + ')');
+                    var resList = [];
+                    for (var ri = 0; ri < p.length; ri++) {
+                        resList.push('(' + p[ri].residue_number + ', ' + (p[ri].is_cu ? 'True' : 'False') + ')');
+                    }
+                    pml.push('draw_path_cgo("' + protName + '", "' + cgoName + '", [' + resList.join(', ') + '], ' + pymolRGB(hhPair.bridge) + ')');
+                }
+                pml.push('python end');
+                pml.push('');
+            }
+            pml.push('cmd.deselect()');
+            pml.push('cmd.zoom()');
+
+            var blob = new Blob([pml.join('\n')], {type: 'text/plain'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'hole_hopping_paths.pml';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+    </script>
+
+
+    <script>
+        const LINK_STYLE = 'color:#569976;text-decoration:underline;';
+
+        function _validTokens(raw) {
+            return (raw || '').split(/[,;]/).map(s => s.trim())
+                .filter(s => s && s.toLowerCase() !== 'nan' && s !== 'None' && s !== 'null');
+        }
+
+        // `keep` entries, the rest behind "(+N more)" (the CSV export and the sorting read the
+        // cells' data attributes, so they always have every entry)
+        function _renderWithCollapse(el, links, keep = 3) {
+            if (links.length === 0) { el.innerHTML = ''; return; }
+            if (links.length <= keep) { el.innerHTML = links.join(', '); return; }
+            const uid = 'xp-' + Math.random().toString(36).substr(2, 9);
+            el.innerHTML =
+                `<span>${links.slice(0, keep).join(', ')}</span>` +
+                `<span id="${uid}" style="display:none;">, ${links.slice(keep).join(', ')}</span>` +
+                `<span class="expand-toggle" title="Show all" onclick="togglePDBCodes('${uid}',this,event)"> +${links.length - keep}</span>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 3D structure column
+            document.querySelectorAll('.struct-col').forEach(el => {
+                const selected = (el.getAttribute('data-selected') || '').trim();
+                if (selected.toUpperCase().startsWith('AF-')) {
+                    const uid = selected.replace(/^AF-/i, '');
+                    const afUrl = `https://alphafold.ebi.ac.uk/entry/${selected}-F1`;
+                    el.innerHTML = `AlphaFold DB <strong><a href="${afUrl}" target="_blank" style="${LINK_STYLE}">${uid}</a></strong>`;
+                } else if (selected.toUpperCase().startsWith('C3D-')) {
+                    // CAZyme3D model: C3D-<GenBank accession, version dot written as '_'>
+                    const genbank = selected.slice(4).replace(/_(\d+)$/, '.$1');
+                    const c3dUrl = `https://pro.unl.edu/CAZyme3D/get_entry.php?cazyid=${genbank}`;
+                    el.innerHTML = `CAZyme3D <strong><a href="${c3dUrl}" target="_blank" style="${LINK_STYLE}">${genbank}</a></strong>`;
+                } else {
+                    const allCodes = _validTokens(el.getAttribute('data-pdb'));
+                    // Put selected first so it's always visible
+                    const ordered = selected
+                        ? [selected, ...allCodes.filter(c => c !== selected)]
+                        : allCodes;
+                    const codeLinks = ordered.map(c => {
+                        const a = `<a href="https://www.rcsb.org/structure/${c}" target="_blank" style="${LINK_STYLE}">${c}</a>`;
+                        return c === selected ? `<strong>${a}</strong>` : a;
+                    });
+                    // the selected structure, the entry's other PDB codes behind "(+N more)"
+                    const prefix = 'PDB ';
+                    if (codeLinks.length === 0) {
+                        el.innerHTML = prefix + (selected ? `<strong>${selected}</strong>` : '');
+                    } else {
+                        const wrapper = document.createElement('span');
+                        _renderWithCollapse(wrapper, codeLinks, 1);
+                        el.innerHTML = prefix + wrapper.innerHTML;
+                    }
+                }
+            });
+
+            // UniProt column — links to the active UniProt entries; the hover shows the review status,
+            // how the entry belongs to the protein and its organism. A protein without an active
+            // entry links to the UniParc record of its sequence.
+            const _escapeAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            document.querySelectorAll('.uniprot-col').forEach(el => {
+                let notes = {};
+                try { notes = JSON.parse(el.getAttribute('data-notes') || '{}'); } catch (e) { notes = {}; }
+                let links = _validTokens(el.getAttribute('data-uniprot'))
+                    .map(u => `<a href="https://www.uniprot.org/uniprotkb/${u}/entry" target="_blank" style="${LINK_STYLE}" title="${_escapeAttr(notes[u] || '')}">${u}</a>`);
+                if (links.length === 0) {
+                    links = _validTokens(el.getAttribute('data-uniparc'))
+                        .map(u => `<a href="https://www.uniprot.org/uniparc/${u}/entry" target="_blank" style="${LINK_STYLE}" title="No active UniProt entry: the UniParc record of the sequence">UniParc ${u}</a>`);
+                }
+                _renderWithCollapse(el, links, 1);
+            });
+        });
+        
+        // Toggle function for expanding/collapsing PDB codes
+        function togglePDBCodes(hiddenId, toggleElement, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const hiddenElement = document.getElementById(hiddenId);
+            const isHidden = hiddenElement.style.display === 'none';
+            
+            if (isHidden) {
+                hiddenElement.style.display = 'inline';
+                toggleElement.innerHTML = ' show less';
+            } else {
+                hiddenElement.style.display = 'none';
+                const hiddenCount = hiddenElement.textContent.split(',').length - 1;
+                toggleElement.innerHTML = ` +${hiddenCount}`;
+            }
+        }
+        
+        // A reference number in the EC / Substrates / Regioselectivity cell: open the row's
+        // reference list (it shows only the first paper) and mark the paper it stands for.
+        function showReference(link, n) {
+            const row = link.closest('tr');
+            const cell = row && row.querySelector('td.refs-cell');
+            if (!cell) return false;
+            const more = cell.querySelector('.refs-more');
+            const toggle = cell.querySelector('.refs-toggle');
+            if (more && more.hidden && toggle) toggle.click();
+            cell.querySelectorAll('.ref-hit').forEach(el => el.classList.remove('ref-hit'));
+            const entry = cell.querySelectorAll('.ref-entry')[n - 1];
+            if (entry) {
+                entry.classList.add('ref-hit');
+                entry.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                setTimeout(() => entry.classList.remove('ref-hit'), 3000);
+            }
+            return false;
+        }
+
+        // References: the first paper, the others behind "+N more" (rows stay short)
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('td.refs-cell').forEach(function (cell) {
+                const refs = Array.from(cell.children).filter(el => el.matches('.ref-entry'));
+                if (refs.length < 2) return;
+                const rest = document.createElement('span');
+                rest.className = 'refs-more';
+                rest.hidden = true;
+                // everything after the first reference, with its "; " separators
+                while (refs[0].nextSibling) rest.appendChild(refs[0].nextSibling);
+                const toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'refs-toggle';
+                const label = () => rest.hidden ? `+${refs.length - 1} more` : 'show less';
+                toggle.textContent = label();
+                toggle.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    rest.hidden = !rest.hidden;
+                    toggle.textContent = label();
+                });
+                cell.append(rest, ' ', toggle);
+            });
+        });
+
+        // Process protein names and create expand/collapse functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const nameElements = document.querySelectorAll('.protein-names');
+            nameElements.forEach(function(element) {
+                const names = element.getAttribute('data-names');
+                if (names && names.trim()) {
+                    // names are separated by ';' -- never by ',', which occurs inside them
+                    // ("Endo-beta-1,4-glucanase LPMO9B")
+                    const nameList = names.split(';').map(n => n.trim()).filter(n => n && n.toLowerCase() !== 'nan');
+                    
+                    if (nameList.length === 0) {
+                        // No valid names, show empty
+                        element.innerHTML = '';
+                    } else if (nameList.length <= 2) {
+                        // Show all names if 2 or fewer
+                        element.innerHTML = nameList.join('; ');
+                    } else {
+                        // Show the code and the next name, the rest behind the toggle
+                        const visibleNames = nameList.slice(0, 2);
+                        const hiddenNames = nameList.slice(2);
+                        const uniqueId = 'names-' + Math.random().toString(36).substr(2, 9);
+                        
+                        element.innerHTML = `
+                            <span class="visible-names">${visibleNames.join('; ')}</span>
+                            <span class="hidden-names" id="${uniqueId}" style="display: none;">; ${hiddenNames.join('; ')}</span>
+                            <span class="expand-toggle" data-count="${hiddenNames.length}" title="Show all" onclick="toggleNames('${uniqueId}', this, event)"> +${hiddenNames.length}</span>
+                        `;
+                    }
+                } else {
+                    // No names data, show empty
+                    element.innerHTML = '';
+                }
+            });
+        });
+        
+        // Toggle function for expanding/collapsing names
+        function toggleNames(hiddenId, toggleElement, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const hiddenElement = document.getElementById(hiddenId);
+            const isHidden = hiddenElement.style.display === 'none';
+            
+            if (isHidden) {
+                hiddenElement.style.display = 'inline';
+                toggleElement.innerHTML = ' show less';
+            } else {
+                hiddenElement.style.display = 'none';
+                toggleElement.innerHTML = ` +${toggleElement.dataset.count}`;
+            }
+        }
+        
+        // Taxonomy: the NCBI lineage is the longest value of the table and would give every row
+        // three or four lines, so only its first rank is shown, the rest behind "+N".
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.taxonomy-col').forEach(function(element) {
+                const ranks = (element.dataset.lineage || '').split('›').map(r => r.trim()).filter(Boolean);
+                element.title = ranks.join(' › ');
+                if (ranks.length < 2) return;
+                element.textContent = ranks[0];
+                const rest = document.createElement('span');
+                rest.className = 'hidden-taxonomy';
+                rest.style.display = 'none';
+                rest.textContent = ' › ' + ranks.slice(1).join(' › ');
+                const toggle = document.createElement('span');
+                toggle.className = 'expand-toggle';
+                const label = () => rest.style.display === 'none'
+                    ? ` +${ranks.length - 1}` : ' show less';
+                toggle.textContent = label();
+                toggle.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    rest.style.display = rest.style.display === 'none' ? 'inline' : 'none';
+                    toggle.textContent = label();
+                });
+                element.append(rest, toggle);
+            });
+        });
+
+        // Values the view renders with their reference numbers (substrates, EC numbers): keep the
+        // first `keep` of them, the rest behind "+N". A warning sign belongs to the whole cell, so
+        // it stays visible.
+        function collapseCellItems(element, selector, keep) {
+            const items = Array.from(element.children).filter(el => el.matches(selector));
+            if (items.length <= keep) return;
+            const rest = document.createElement('span');
+            rest.className = 'hidden-items';
+            rest.style.display = 'none';
+            const warnings = [];
+            while (items[keep - 1].nextSibling) {
+                const node = items[keep - 1].nextSibling;
+                node.remove();
+                if (node.nodeType === 1 && node.classList.contains('actWarn')) warnings.push(node);
+                else rest.appendChild(node);
+            }
+            const toggle = document.createElement('span');
+            toggle.className = 'expand-toggle';
+            toggle.title = 'Show all';
+            const label = () => (rest.style.display === 'none' ? ` +${items.length - keep}` : ' show less');
+            toggle.textContent = label();
+            toggle.addEventListener('click', function (event) {
+                event.stopPropagation();
+                event.preventDefault();
+                rest.style.display = rest.style.display === 'none' ? 'inline' : 'none';
+                toggle.textContent = label();
+            });
+            element.append(rest, toggle, ...warnings);
+        }
+
+        // Process substrates and create expand/collapse functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.ec-list').forEach(el => collapseCellItems(el, '.cell-item', 1));
+            const substrateElements = document.querySelectorAll('.substrates-list');
+            substrateElements.forEach(function(element) {
+                // Substrates the papers report are rendered by the view (with their reference
+                // numbers): collapse them after the third item, separators and all.
+                if (element.querySelector('.sub-item')) {
+                    collapseCellItems(element, '.sub-item', 3);
+                    return;
+                }
+                if (!element.hasAttribute('data-substrates')) return;
+                const substrates = element.getAttribute('data-substrates');
+                if (substrates && substrates.trim()) {
+                    const substrateList = substrates.split(',').map(s => s.trim()).filter(s => s && s.toLowerCase() !== 'nan');
+                    
+                    if (substrateList.length === 0) {
+                        // No valid substrates, show empty
+                        element.innerHTML = '';
+                    } else if (substrateList.length <= 3) {
+                        // Show all substrates if 3 or fewer
+                        element.innerHTML = substrateList.join(', ');
+                    } else {
+                        // Show first 3 substrates with expand option
+                        const visibleSubstrates = substrateList.slice(0, 3);
+                        const hiddenSubstrates = substrateList.slice(3);
+                        const uniqueId = 'substrates-' + Math.random().toString(36).substr(2, 9);
+                        
+                        element.innerHTML = `
+                            <span class="visible-substrates">${visibleSubstrates.join(', ')}</span>
+                            <span class="hidden-substrates" id="${uniqueId}" style="display: none;">, ${hiddenSubstrates.join(', ')}</span>
+                            <span class="expand-toggle" title="Show all" onclick="toggleSubstrates('${uniqueId}', this, event)"> +${hiddenSubstrates.length}</span>
+                        `;
+                    }
+                } else {
+                    // No substrates data, show empty
+                    element.innerHTML = '';
+                }
+            });
+        });
+        
+        // Toggle function for expanding/collapsing substrates
+        function toggleSubstrates(hiddenId, toggleElement, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const hiddenElement = document.getElementById(hiddenId);
+            const isHidden = hiddenElement.style.display === 'none';
+            
+            if (isHidden) {
+                hiddenElement.style.display = 'inline';
+                toggleElement.innerHTML = ' show less';
+            } else {
+                hiddenElement.style.display = 'none';
+                const hiddenSubstrates = hiddenElement.textContent.split(',').map(s => s.trim()).filter(s => s);
+                toggleElement.innerHTML = ` +${hiddenSubstrates.length}`;
+            }
+        }
+        
+        // Function to download table as CSV
+        // "Substrates and oxidised positions" card: the claims as the view collected them
+        // (one row per claim, with its papers and the sentence or reaction it comes from).
+        function downloadActivitiesAsCSV() {
+            const holder = document.getElementById('activityExport');
+            if (!holder) return;
+            const rows = JSON.parse(holder.textContent || '[]');
+            const csv = rows.map(row => row
+                .map(value => '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"')
+                .join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'substrate_evidence_' + new Date().toISOString().split('T')[0] + '.csv';
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadTableAsCSV() {
+            // Get all checked checkboxes
+            const checkedBoxes = document.querySelectorAll('.proteinVisibilityCheckbox:checked');
+            
+            if (checkedBoxes.length === 0) {
+                alert('Please select at least one protein to download.');
+                return;
+            }
+            
+            // Get table headers (excluding the checkbox column)
+            const headers = [];
+            const headerRow = document.querySelector('.catalog-table tr');
+            if (headerRow) {
+                const headerCells = headerRow.querySelectorAll('th');
+                // Skip the checkbox column
+                for (let i = 1; i < headerCells.length; i++) {
+                    headers.push(headerCells[i].textContent.trim());
+                }
+            }
+            // a comparison with groups: the group first
+            const withGroups = !!document.querySelector('.catalog-table tr.grouped');
+            if (withGroups) headers.unshift('Group');
+            
+            // Collect data from checked rows
+            const rows = [];
+            checkedBoxes.forEach(function(checkbox) {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const cells = row.querySelectorAll('td');
+                    const rowData = withGroups ? ['"' + (row.getAttribute('data-group') || '').replace(/"/g, '""') + '"'] : [];
+                    
+                    // Skip the checkbox column
+                    for (let i = 1; i < cells.length; i++) {
+                        const cell = cells[i];
+                        let cellText = '';
+                        
+                        // Handle special cases for expandable columns
+                        const nameSpan = cell.querySelector('.protein-names');
+                        if (nameSpan) {
+                            // Get all names from data attribute
+                            const names = nameSpan.getAttribute('data-names') || '';
+                            cellText = names;
+                        } else {
+                            const pdbSpan = cell.querySelector('.pdb-codes');
+                            if (pdbSpan) {
+                                // Get all PDB codes from data attribute
+                                const codes = pdbSpan.getAttribute('data-codes') || '';
+                                cellText = codes;
+                            } else {
+                                const substrateSpan = cell.querySelector('.substrates-list');
+                                if (substrateSpan && substrateSpan.hasAttribute('data-substrates')) {
+                                    // Get all substrates from data attribute
+                                    cellText = substrateSpan.getAttribute('data-substrates') || '';
+                                } else if (substrateSpan) {
+                                    // Substrates rendered with their reference numbers: every item
+                                    // (the collapsed ones too), without the numbers and warnings
+                                    cellText = Array.from(substrateSpan.querySelectorAll('.sub-item'))
+                                        .map(item => {
+                                            const plain = item.cloneNode(true);
+                                            plain.querySelectorAll('.actRef, .actRefSep, .actWarn').forEach(n => n.remove());
+                                            return plain.textContent.trim();
+                                        })
+                                        .filter(Boolean).join(', ');
+                                } else {
+                                    const structSpan = cell.querySelector('.struct-col');
+                                    if (structSpan) {
+                                        // 3D structure column: rebuild the FULL list from the data
+                                        // attributes (the rendered cell is truncated with "(+N more)").
+                                        const selected = (structSpan.getAttribute('data-selected') || '').trim();
+                                        if (selected.toUpperCase().startsWith('AF-')) {
+                                            cellText = 'AlphaFold DB ' + selected.replace(/^AF-/i, '');
+                                        } else if (selected.toUpperCase().startsWith('C3D-')) {
+                                            cellText = 'CAZyme3D ' + selected.slice(4).replace(/_(\d+)$/, '.$1');
+                                        } else {
+                                            const allCodes = (structSpan.getAttribute('data-pdb') || '')
+                                                .split(/[,;]/).map(s => s.trim())
+                                                .filter(s => s && s.toLowerCase() !== 'nan' && s !== 'None' && s !== 'null');
+                                            const ordered = selected
+                                                ? [selected].concat(allCodes.filter(c => c !== selected))
+                                                : allCodes;
+                                            cellText = 'PDB ' + ordered.join(', ');
+                                        }
+                                    } else {
+                                        // Regular cell — without the collapse labels ("+N",
+                                        // "show less"), which textContent would otherwise include;
+                                        // the references' hidden rest counts, their toggle not.
+                                        const plain = cell.cloneNode(true);
+                                        plain.querySelectorAll('.refs-toggle, .expand-toggle, .actRef, .actRefSep, .ref-n, .actWarn')
+                                             .forEach(b => b.remove());
+                                        cellText = plain.textContent.trim()
+                                            .replace(/\s*\([^)]*\+\d+\s*more\)/g, '')
+                                            .replace(/\s*\(show less\)/g, '').trim();
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Clean up the text and escape for CSV
+                        cellText = cellText.replace(/"/g, '""'); // Escape quotes
+                        rowData.push('"' + cellText + '"');
+                    }
+                    rows.push(rowData);
+                }
+            });
+            
+            // Create CSV content
+            let csvContent = headers.map(h => '"' + h.replace(/"/g, '""') + '"').join(',') + '\n';
+            rows.forEach(function(row) {
+                csvContent += row.join(',') + '\n';
+            });
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'protein_comparison_' + new Date().toISOString().split('T')[0] + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadSelectedPDBs() {
+            const checkedBoxes = document.querySelectorAll('.proteinVisibilityCheckbox:checked');
+
+            if (checkedBoxes.length === 0) {
+                return;
+            }
+            if (!window.protIdList || !Array.isArray(window.protIdList) || window.protIdList.length === 0) {
+                return;
+            }
+
+            const selectedIds = [];
+            checkedBoxes.forEach(function(checkbox) {
+                const rowIndex = parseInt(checkbox.value, 10);
+                if (!isNaN(rowIndex) && window.protIdList[rowIndex]) {
+                    selectedIds.push(window.protIdList[rowIndex]);
+                }
+            });
+
+            if (selectedIds.length === 0) {
+                return;
+            }
+
+            const idsParam = encodeURIComponent(selectedIds.join(','));
+            // the structures the viewer shows: protonated when that view is on
+            // and the catalytic domain or the full length, as the view switch says
+            const protonated = document.getElementById('showProtonated')?.checked;
+            const full = document.getElementById('showFullStructure')?.checked;
+            const downloadUrl = `/catalogue/download/pdb-structures/?ids=${idsParam}`
+                + `&view=${full ? 'full' : 'catalytic'}${protonated ? '&protonated=1' : ''}`;
+
+            window.location.href = downloadUrl;
+        }
+
+        // Table pagination variables
+        let currentPage = 1;
+        let rowsPerPage = 5;
+        let totalRows = 0;
+        let totalPages = 1;
+        
+        // Table sorting variables
+        let currentSortColumn = null;
+        let currentSortDirection = null;
+
+        // Initialize table pagination
+        function initTablePagination() {
+            const table = document.getElementById('proteinTable');
+            if (!table) return;
+            
+            totalRows = table.querySelectorAll('tr.proteinEntry').length;
+            updateTablePagination();
+        }
+
+        // Update table pagination
+        function updateTablePagination() {
+            const select = document.getElementById('rowsPerPage');
+            if (!select) return;
+            
+            rowsPerPage = select.value === 'all' ? totalRows : parseInt(select.value);
+            currentPage = 1; // Reset to first page when changing rows per page
+            
+            const table = document.getElementById('proteinTable');
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tr.proteinEntry');
+            totalRows = rows.length;
+            totalPages = rowsPerPage === totalRows ? 1 : Math.ceil(totalRows / rowsPerPage);
+            
+            // Show/hide rows based on current page
+            rows.forEach((row, index) => {
+                const rowIndex = index + 1; // 1-based index
+                const startIndex = (currentPage - 1) * rowsPerPage + 1;
+                const endIndex = currentPage * rowsPerPage;
+                
+                if (rowIndex >= startIndex && rowIndex <= endIndex) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update pagination controls
+            updatePaginationControls();
+            updateTableInfo();
+            // the table just changed height: the floating scrollbar may be needed now (or not)
+            if (window.updateFloatingHScroll) window.updateFloatingHScroll();
+        }
+
+        // Change page
+        function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage < 1 || newPage > totalPages) {
+                return;
+            }
+            
+            currentPage = newPage;
+            
+            // Update rows visibility directly without resetting rowsPerPage
+            const table = document.getElementById('proteinTable');
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tr.proteinEntry');
+            rows.forEach((row, index) => {
+                const rowIndex = index + 1; // 1-based index
+                const startIndex = (currentPage - 1) * rowsPerPage + 1;
+                const endIndex = currentPage * rowsPerPage;
+                
+                if (rowIndex >= startIndex && rowIndex <= endIndex) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update pagination controls and info
+            updatePaginationControls();
+            updateTableInfo();
+            
+            // Scroll to top of table
+            if (table) {
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Update pagination controls
+        function updatePaginationControls() {
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const pageInfo = document.getElementById('pageInfo');
+            
+            if (prevBtn) {
+                prevBtn.disabled = currentPage === 1 || totalPages === 0;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = currentPage >= totalPages || totalPages === 0;
+            }
+            if (pageInfo) {
+                pageInfo.textContent = totalPages > 0 ? `Page ${currentPage} of ${totalPages}` : 'Page 1 of 1';
+            }
+        }
+
+        // Update table info
+        function updateTableInfo() {
+            const tableInfo = document.getElementById('tableInfo');
+            if (!tableInfo) return;
+            
+            const startRow = totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+            const endRow = Math.min(currentPage * rowsPerPage, totalRows);
+            
+            if (rowsPerPage === totalRows) {
+                tableInfo.textContent = `Showing all ${totalRows} entries`;
+            } else {
+                tableInfo.textContent = `Showing ${startRow} to ${endRow} of ${totalRows} entries`;
+            }
+        }
+
+        // Sort table function
+        function sortTable(columnIndex) {
+            const table = document.getElementById('proteinTable');
+            if (!table) return;
+            
+            const rows = Array.from(table.querySelectorAll('tr.proteinEntry'));
+            
+            if (rows.length === 0) return;
+            
+            // Determine sort direction
+            const header = table.querySelectorAll('th')[columnIndex];
+            if (!header || !header.classList.contains('sortable')) return;
+            
+            let sortDirection = 'asc';
+            if (currentSortColumn === columnIndex && currentSortDirection === 'asc') {
+                sortDirection = 'desc';
+            }
+            
+            // Update sort indicators - remove sort classes from all headers first
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            // Add appropriate sort class to the clicked header
+            if (sortDirection === 'asc') {
+                header.classList.add('sort-asc');
+            } else {
+                header.classList.add('sort-desc');
+            }
+            
+            currentSortColumn = columnIndex;
+            currentSortDirection = sortDirection;
+            
+            // Get column data type
+            const columnType = header.getAttribute('data-column');
+            const isNumeric = ['sequence_length', 'catalytic_length', 'sequence_mass', 'catalytic_mass'].includes(columnType);
+            const isClade = columnType === 'clade';
+            
+            // Helper function to extract numeric value from clade (e.g., "AA9" -> 9, "AA10" -> 10)
+            function extractCladeNumber(cladeValue) {
+                if (!cladeValue) return Infinity; // Empty values go to end
+                // Match pattern like AA9, AA10, AA13, etc.
+                const match = cladeValue.toString().match(/(\d+)/);
+                if (match) {
+                    return parseInt(match[1], 10);
+                }
+                // If no number found, return a large number to sort to end
+                return Infinity;
+            }
+            
+            // Sort rows
+            rows.sort((a, b) => {
+                const aCell = a.cells[columnIndex];
+                const bCell = b.cells[columnIndex];
+                
+                if (!aCell || !bCell) return 0;
+                
+                let aValue = '';
+                let bValue = '';
+                
+                // Handle special cases for expandable columns
+                const aNameSpan = aCell.querySelector('.protein-names');
+                const bNameSpan = bCell.querySelector('.protein-names');
+                
+                if (aNameSpan || bNameSpan) {
+                    aValue = aNameSpan ? (aNameSpan.getAttribute('data-names') || '') : '';
+                    bValue = bNameSpan ? (bNameSpan.getAttribute('data-names') || '') : '';
+                } else {
+                    const aPdbSpan = aCell.querySelector('.pdb-codes');
+                    const bPdbSpan = bCell.querySelector('.pdb-codes');
+                    
+                    if (aPdbSpan || bPdbSpan) {
+                        aValue = aPdbSpan ? (aPdbSpan.getAttribute('data-codes') || '') : '';
+                        bValue = bPdbSpan ? (bPdbSpan.getAttribute('data-codes') || '') : '';
+                    } else {
+                        const aSubstrateSpan = aCell.querySelector('.substrates-list');
+                        const bSubstrateSpan = bCell.querySelector('.substrates-list');
+                        
+                        if (aSubstrateSpan || bSubstrateSpan) {
+                            aValue = aSubstrateSpan ? (aSubstrateSpan.getAttribute('data-substrates') || '') : '';
+                            bValue = bSubstrateSpan ? (bSubstrateSpan.getAttribute('data-substrates') || '') : '';
+                        } else {
+                            // Regular cell - get text content (excluding button text)
+                            const aText = aCell.cloneNode(true);
+                            const bText = bCell.cloneNode(true);
+                            // Remove buttons and other interactive elements
+                            aText.querySelectorAll('button, a').forEach(el => el.remove());
+                            bText.querySelectorAll('button, a').forEach(el => el.remove());
+                            aValue = aText.textContent.trim();
+                            bValue = bText.textContent.trim();
+                        }
+                    }
+                }
+                
+                // Handle clade sorting - extract numeric part and sort numerically
+                if (isClade) {
+                    const aNum = extractCladeNumber(aValue);
+                    const bNum = extractCladeNumber(bValue);
+                    
+                    // If both have valid numbers, sort numerically
+                    if (aNum !== Infinity && bNum !== Infinity) {
+                        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+                    }
+                    // If one is Infinity (no number), sort it to the end
+                    if (aNum === Infinity && bNum !== Infinity) {
+                        return 1;
+                    }
+                    if (bNum === Infinity && aNum !== Infinity) {
+                        return -1;
+                    }
+                    // If both are Infinity, fall back to text sorting
+                }
+                
+                // Handle numeric sorting
+                if (isNumeric) {
+                    const aNum = parseFloat(aValue) || 0;
+                    const bNum = parseFloat(bValue) || 0;
+                    return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                
+                // Handle text sorting (case-insensitive)
+                aValue = aValue.toLowerCase();
+                bValue = bValue.toLowerCase();
+                
+                if (aValue < bValue) {
+                    return sortDirection === 'asc' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortDirection === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+            
+            // Remove all data rows from table
+            rows.forEach(row => row.remove());
+            
+            // Re-append sorted rows to table
+            rows.forEach(row => table.appendChild(row));
+            
+            // Collect the new order of protein indices from sorted rows
+            const newProteinOrder = rows.map(row => {
+                return parseInt(row.getAttribute('data-protein-index'));
+            });
+            
+            // Reorder plots to match the new table order
+            reorderPlots(newProteinOrder);
+            // Remember the order so re-rendered plots (e.g. after the Full-length toggle) can be
+            // re-sorted to keep them aligned with the (persistent) y-axis labels.
+            window.currentSortOrder = newProteinOrder;
+
+            // Reset to first page and update pagination
+            currentPage = 1;
+            updateTablePagination();
+        }
+
+        // Function to reorder plots based on new protein order
+        function reorderPlots(newProteinOrder) {
+            // Get all plot types
+            const plotTypes = document.querySelectorAll('.dropdownPlots');
+            
+            plotTypes.forEach(plotTypeContainer => {
+                // Get y-axis labels column
+                const yAxisColumn = plotTypeContainer.querySelector('.yaxis-labels-column');
+                // Get scrollable plots column
+                const plotsColumn = plotTypeContainer.querySelector('.scrollable-plots-column');
+                
+                if (!yAxisColumn || !plotsColumn) return;
+                
+                // Collect existing plot elements and y-axis labels
+                const plotElements = Array.from(plotsColumn.querySelectorAll('.plotWrapper'));
+                const yAxisLabels = Array.from(yAxisColumn.querySelectorAll('.yaxis-label'));
+                
+                // Create arrays to hold reordered elements
+                const reorderedPlots = [];
+                const reorderedLabels = [];
+                
+                // Reorder based on newProteinOrder
+                // newProteinOrder contains original indices in their new visual order
+                newProteinOrder.forEach((originalIndex, visualPosition) => {
+                    // Find the plot and label by original protein index (data-protein-index)
+                    // This works even after multiple reorders because data-protein-index never changes
+                    const plotElement = plotElements.find(el => {
+                        const proteinIndex = parseInt(el.getAttribute('data-protein-index'));
+                        return proteinIndex === originalIndex;
+                    });
+                    
+                    const labelElement = yAxisLabels.find(el => {
+                        // Use data-protein-index if available (preferred method)
+                        const dataIndex = el.getAttribute('data-protein-index');
+                        if (dataIndex !== null) {
+                            return parseInt(dataIndex) === originalIndex;
+                        }
+                        // Fallback: check class name (for backwards compatibility)
+                        const classes = Array.from(el.classList);
+                        const proteinIndexMatch = classes.find(c => c.startsWith('protein-plot-container-'));
+                        if (proteinIndexMatch) {
+                            const proteinIndex = parseInt(proteinIndexMatch.replace('protein-plot-container-', ''));
+                            return proteinIndex === originalIndex;
+                        }
+                        return false;
+                    });
+                    
+                    if (plotElement) {
+                        // Update the class to reflect new visual position (keep original data-protein-index unchanged)
+                        plotElement.classList.remove(...Array.from(plotElement.classList).filter(c => c.startsWith('protein-plot-container-')));
+                        plotElement.classList.add(`protein-plot-container-${visualPosition}`);
+                        // Keep data-protein-index as originalIndex - DO NOT CHANGE IT
+                        reorderedPlots.push(plotElement);
+                    }
+                    
+                    if (labelElement) {
+                        // Update the class to reflect new visual position (keep original data-protein-index unchanged)
+                        labelElement.classList.remove(...Array.from(labelElement.classList).filter(c => c.startsWith('protein-plot-container-')));
+                        labelElement.classList.add(`protein-plot-container-${visualPosition}`);
+                        // Keep data-protein-index as originalIndex - DO NOT CHANGE IT
+                        reorderedLabels.push(labelElement);
+                    }
+                });
+                
+                // Clear and re-append in new order
+                plotsColumn.innerHTML = '';
+                reorderedPlots.forEach(plot => plotsColumn.appendChild(plot));
+                
+                yAxisColumn.innerHTML = '';
+                reorderedLabels.forEach(label => yAxisColumn.appendChild(label));
+            });
+            
+            // NOTE: Dropdown checkboxes should NOT be updated when table is reordered
+            // They must keep their original index (0, 1, 2...) to match Molstar structure order
+            // The table rows keep their data-protein-index correctly, which is what we use for matching
+        }
+
+        // Make table rows clickable to toggle checkboxes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize pagination after a short delay to ensure table is fully rendered
+            setTimeout(initTablePagination, 100);
+            const tableRows = document.querySelectorAll('.catalog-table tr.proteinEntry');
+            tableRows.forEach(function(row) {
+                row.addEventListener('click', function(e) {
+                    // Don't toggle if clicking directly on the checkbox or a link/button
+                    if (e.target.type === 'checkbox' || 
+                        e.target.tagName === 'A' || 
+                        e.target.tagName === 'BUTTON' ||
+                        e.target.closest('a') ||
+                        e.target.closest('button')) {
+                        return;
+                    }
+                    
+                    // Find the checkbox in this row and toggle it
+                    const checkbox = row.querySelector('.proteinVisibilityCheckbox');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        // Trigger the change event to update visibility
+                        const changeEvent = new Event('change', { bubbles: true });
+                        checkbox.dispatchEvent(changeEvent);
+                    }
+                });
+            });
+        });
+
+        // Override cursor behavior for all plot elements
+        (function() {
+            function overrideCursor() {
+                // Find all plotly plots and force pointer cursor on all elements
+                const plotDivs = document.querySelectorAll('.plotWrapper .js-plotly-plot');
+                plotDivs.forEach(plotDiv => {
+                    const svg = plotDiv.querySelector('svg');
+                    if (svg) {
+                        // Override cursor on ALL SVG elements to force pointer
+                        const allElements = svg.querySelectorAll('*');
+                        allElements.forEach(el => {
+                            el.style.cursor = 'pointer !important';
+                            el.setAttribute('style', (el.getAttribute('style') || '') + '; cursor: pointer !important;');
+                        });
+                        
+                        // Also set on the SVG itself
+                        svg.style.cursor = 'pointer !important';
+                        svg.setAttribute('style', (svg.getAttribute('style') || '') + '; cursor: pointer !important;');
+                    }
+                });
+            }
+            
+            // Run multiple times to catch all elements
+            overrideCursor();
+            setTimeout(overrideCursor, 500);
+            setTimeout(overrideCursor, 1000);
+            setTimeout(overrideCursor, 2000);
+            setTimeout(overrideCursor, 3000);
+            
+            // Also run on window load
+            window.addEventListener('load', overrideCursor);
+        })();
+        
+        // Vertical cursor line across all plots - Using same approach as hoverSequenceSelection
+        (function() {
+            let currentXPosition = null;
+            const initializedPlots = new WeakSet();
+            
+            function addVerticalLine(plotDiv, xPosition) {
+                try {
+                    if (!plotDiv) return;
+
+                    // Get current shapes or initialize empty array
+                    const currentLayout = plotDiv.layout || {};
+                    const currentShapes = currentLayout.shapes || [];
+
+                    // Fast path: if the cursor shape already exists, just move it with a
+                    // targeted relayout (much cheaper than rebuilding the whole shapes array).
+                    const existingIdx = currentShapes.findIndex(s => s.name === 'cursor-line');
+                    if (existingIdx !== -1) {
+                        Plotly.relayout(plotDiv, {
+                            [`shapes[${existingIdx}].x0`]: xPosition - 0.5,
+                            [`shapes[${existingIdx}].x1`]: xPosition + 0.5,
+                        });
+                        return;
+                    }
+
+                    // Remove existing cursor line (if any)
+                    const otherShapes = currentShapes.filter(s => s.name !== 'cursor-line');
+
+                    // By default the cursor spans the full plot height (paper 0..1).
+                    // The Sequence plot has the domain bar above the residues, so there we
+                    // clip the cursor to the residue row. That row is a fixed data range
+                    // (y -0.5..0.5), so reference it in data coords — simpler and more
+                    // robust than converting to paper fractions.
+                    // Sequence and Secondary Structure and Loops carry bars above the residue
+                    // row, so on those the cursor is clipped to the residue row (data y
+                    // -0.5..0.5) instead of the full paper height, so it doesn't cover the bars.
+                    const wrapper = plotDiv.closest ? plotDiv.closest('.plotWrapper') : null;
+                    const pt = wrapper ? wrapper.getAttribute('data-plot-type') : '';
+                    const clipToRow = (window.BAR_PLOT_TYPES || ['Sequence']).includes(pt);
+                    const yRef = clipToRow ? 'y' : 'paper';
+                    const yLo = clipToRow ? -0.5 : 0;
+                    const yHi = clipToRow ? 0.5 : 1;
+
+                    // Add new cursor rectangle (square matching sequence plot)
+                    const newShapes = [...otherShapes, {
+                        type: 'rect',
+                        name: 'cursor-line',
+                        x0: xPosition - 0.5,
+                        x1: xPosition + 0.5,
+                        y0: yLo,
+                        y1: yHi,
+                        yref: yRef,
+                        xref: 'x',
+                        // Molstar-pink (matches the residue highlight in the 3D viewer) so
+                        // the cursor box and the 3D highlight read as the same position.
+                        fillcolor: 'rgba(255, 20, 147, 0.22)',
+                        line: {
+                            color: 'rgba(255, 20, 147, 0.85)',
+                            width: 2
+                        }
+                    }];
+                    
+                    Plotly.relayout(plotDiv, { shapes: newShapes });
+                } catch (e) {
+                    // Silently ignore
+                }
+            }
+            
+            function removeVerticalLine(plotDiv) {
+                try {
+                    if (!plotDiv) return;
+                    
+                    const currentLayout = plotDiv.layout || {};
+                    const currentShapes = currentLayout.shapes || [];
+                    const otherShapes = currentShapes.filter(s => s.name !== 'cursor-line');
+                    
+                    Plotly.relayout(plotDiv, { shapes: otherShapes });
+                } catch (e) {
+                    // Silently ignore
+                }
+            }
+            
+            // The cursor draws on every plot via Plotly.relayout, which is costly across
+            // ~24 plots. Hover events fire far faster than the screen refreshes, so we
+            // coalesce them: keep only the latest x and apply it at most once per animation
+            // frame. This removes the lag without changing the visual result.
+            let _cursorRaf = null;
+            let _cursorPendingX = null;
+            function _applyCursor() {
+                _cursorRaf = null;
+                const x = _cursorPendingX;
+                if (x === currentXPosition) return;
+                currentXPosition = x;
+                const allPlots = alignmentPlotDivs();
+                allPlots.forEach(plotDiv => { if (plotDiv) addVerticalLine(plotDiv, x); });
+            }
+            function updateAllPlots(xPosition) {
+                _cursorPendingX = xPosition;
+                if (_cursorRaf === null) _cursorRaf = requestAnimationFrame(_applyCursor);
+            }
+
+            function removeAllPlots() {
+                if (_cursorRaf !== null) { cancelAnimationFrame(_cursorRaf); _cursorRaf = null; }
+                if (currentXPosition === null) return;
+                currentXPosition = null;
+
+                const allPlots = alignmentPlotDivs();
+                allPlots.forEach(plotDiv => {
+                    if (plotDiv) {
+                        removeVerticalLine(plotDiv);
+                    }
+                });
+            }
+            
+            // Let other code (e.g. Mol* hover) drive the cursor across all plots
+            window.setPlotCursor = updateAllPlots;
+            window.clearPlotCursor = removeAllPlots;
+
+            // Initialize using same approach as hoverSequenceSelection
+            window.initializeVerticalCursor = function() {
+                console.log('Initializing vertical cursor...');
+                
+                // The same plots as hoverSequenceSelection
+                var plotArr = alignmentPlotDivs();
+                console.log(`Found ${plotArr.length} plotly plots`);
+                
+                if (plotArr.length === 0) {
+                    console.log('No plots found yet');
+                    return;
+                }
+                
+                let plotsInitialized = 0;
+                
+                plotArr.forEach(function(plotDiv) {
+                    // Skip if already initialized
+                    if (initializedPlots.has(plotDiv)) {
+                        return;
+                    }
+                    
+                    // Check if plot has the .on method (Plotly is ready)
+                    if (typeof plotDiv.on !== 'function') {
+                        console.log('Plot not ready yet (no .on method)');
+                        return;
+                    }
+                    
+                    initializedPlots.add(plotDiv);
+                    plotsInitialized++;
+                    
+                    // Listen for hover events - same as hoverSequenceSelection
+                    plotDiv.on('plotly_hover', function(eventData) {
+                        if (!eventData.points || eventData.points.length === 0) return;
+
+                        // Show our body-level tooltip (escapes the clip-prone short plot).
+                        // Both the domain bar and the loop bar are "bars": their points are band
+                        // corners, not residue columns, so skip the residue cursor for them.
+                        const _isBar = !!((window.domainBarMeta && window.domainBarMeta(eventData.points[0]))
+                                       || (window.loopBarMeta && window.loopBarMeta(eventData.points[0])));
+                        if (window.showPlotHoverTip) window.showPlotHoverTip(plotDiv, eventData.points[0], eventData.event, _isBar);
+
+                        // Ignore the domain bar: its points are polygon corners, so their
+                        // x is a band edge, not a residue column — it would jump the cursor.
+                        if (_isBar) return;
+
+                        const hoveredX = eventData.points[0].x;
+
+                        // Update all plots with vertical line
+                        updateAllPlots(hoveredX);
+                    });
+
+                    // Listen for unhover events
+                    plotDiv.on('plotly_unhover', function() {
+                        if (window.hidePlotHoverTip) window.hidePlotHoverTip();
+                        removeAllPlots();
+                    });
+                });
+                
+                console.log(`Initialized cursor for ${plotsInitialized} plots`);
+            }
+            
+            // Initialize after plots are loaded (fallback)
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(window.initializeVerticalCursor, 1000);
+                setTimeout(window.initializeVerticalCursor, 2000);
+                setTimeout(window.initializeVerticalCursor, 3000);
+            });
+            
+            window.addEventListener('load', function() {
+                setTimeout(window.initializeVerticalCursor, 500);
+                setTimeout(window.initializeVerticalCursor, 2000);
+            });
+        })();
+    </script>
+
+    <script>
+        // Handle legend tooltip visibility on icon hover only
+        // CSS handles this now with .info-icon-wrapper:hover .legend-tooltip-content
+        // But add JavaScript as backup for browsers that need it
+        document.addEventListener('DOMContentLoaded', function() {
+            const iconWrappers = document.querySelectorAll('.info-icon-wrapper');
+            
+            iconWrappers.forEach(wrapper => {
+                const tooltip = wrapper.querySelector('.legend-tooltip-content');
+                
+                if (tooltip) {
+                    wrapper.addEventListener('mouseenter', function() {
+                        tooltip.style.visibility = 'visible';
+                        tooltip.style.opacity = '1';
+                    });
+                    
+                    wrapper.addEventListener('mouseleave', function() {
+                        tooltip.style.visibility = 'hidden';
+                        tooltip.style.opacity = '0';
+                    });
+                }
+            });
+        });
+    </script>
+    
+    {% include "catalogue/_footer.html" %}
+</body>
+</html>

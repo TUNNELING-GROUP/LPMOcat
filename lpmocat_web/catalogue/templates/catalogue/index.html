@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-3.3.0.min.js"></script>
+    <link rel="stylesheet" href="{% static 'css/main_page.css' %}?{% now 'U' %}">
+    <link rel="stylesheet" href="{% static 'css/catalogue_overview.css' %}?{% now 'U' %}">
+    <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png" sizes="48x48">
+    <title>LPMOcat</title>
+    
+</head>
+<body>
+    <!-- Loading Overlay (hidden until button click, but same layout as results page) -->
+    <div id="comparisonLoadingOverlay" class="comparison-loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2 id="loadingTitle">Building Your Comparison...</h2>
+            <p id="loadingMessage">Loading protein data from database...</p>
+        </div>
+    </div>
+
+    <header>
+        <div class="header-content">
+            <div class="header-logo-left">
+                <a href="/"><img src="{% static 'images/LPMOcat_logo_new_green.svg' %}" alt="LPMOcat Logo"></a>
+            </div>
+            
+            <div class="header-center">
+                <div class="header-title">
+                    <h1>Visualize and compare structural properties of lytic polysaccharide monooxygenases</h1>
+                </div>
+                {% include "catalogue/_navigation.html" %}
+            </div>
+            
+            <div class="header-logo-right">
+                <a href="https://new-cat.eu/" target="_blank" rel="noopener noreferrer"><img src="{% static 'images/NewCat-logo.jpg' %}" alt="NewCat Logo"></a>
+            </div>
+            <div class="active-users" data-tooltip="Active users" id="active-users">
+                <img src="{% static 'images/users.svg' %}" alt="Active Users" style="width: 20px; height: 20px;"> Active users: <span id="active-users-count">1</span>
+            </div>
+        </div>
+    </header>
+
+    <form method="post" id="selection-form">
+        {% csrf_token %}
+        <div class="main-content">
+            <div class="left-panel" id="leftPanel">
+                <!-- Catalogue overview | Selection criteria (catalogue_overview.js switches them) -->
+                <div class="left-tabs" role="tablist" aria-label="Browse the catalogue">
+                    <button type="button" role="tab" id="leftTabOverview" data-pane="overview" aria-controls="catalogueOverview" aria-selected="true">Catalogue overview</button>
+                    <button type="button" role="tab" id="leftTabSelection" data-pane="selection" aria-controls="selectionPane" aria-selected="false" tabindex="-1">Selection criteria</button>
+                </div>
+
+                <div class="sections-container">
+                    {% include "catalogue/_catalogue_overview.html" %}
+
+                    <div id="selectionPane" role="tabpanel" aria-labelledby="leftTabSelection" hidden>
+                    <!-- The selection criteria: rows joined with AND / OR / NOT -->
+                    <section id="advancedSearchPanel" class="advanced-search-panel" aria-label="Selection criteria">
+                        <div class="advanced-search-header">
+                            <p class="ov-hint">Choose what the proteins should have and press <strong>Select matching proteins</strong>. Each further row is joined to the rows above it with AND, OR or NOT.</p>
+                        </div>
+                        <div class="advanced-search-content">
+                            <div id="filterFieldsContainer" class="filter-fields-container">
+                            </div>
+                            <div class="add-field-container">
+                                <button type="button" onclick="addFilterField()" class="add-field-btn">+ Add a criterion</button>
+                            </div>
+                            <div class="advanced-search-actions">
+                                <button type="button" onclick="applyAdvancedSearch()" class="search-btn">Select matching proteins</button>
+                                <button type="button" onclick="clearAdvancedSearch()" class="clear-btn">Clear</button>
+                            </div>
+                            <div id="filterSummary" class="filter-summary"></div>
+                        </div>
+                    </section>
+                    {# The catalogue's proteins, never shown: the ticked boxes are the selection (tree, search bar, #}
+                    {# overview and the criteria all tick them), and the data-* values are what the criteria, #}
+                    {# the search bar and the tree tooltips read. #}
+                    <div id="proteinFilterContent" hidden>
+                        {% for prot in proteins %}
+                        <div class="protein-entry2" 
+                        data-protein-code="{{ prot.protein_code|lower }}"
+                        data-protein-name="{{ prot.protein_name|lower }}"
+                        data-other-names="{{ prot.other_names|lower|default:'' }}"
+                        data-pdb="{{ prot.pdb_code|lower|default:'' }} {{ prot.selected_structure|lower|default:'' }}"
+                        data-uniprot="{{ prot.uniprot_accessions|lower }}"
+                        data-clade="{{ prot.clade.name|lower }}"
+                        data-organism="{{ prot.organism.name|lower }}"
+                        data-kingdom="{{ prot.taxon_group_name|lower }}"
+                        data-ec="{{ prot.ec_numbers|lower }}"
+                        data-substrates="{% for s in prot.substrate.all %}{{ s.name|lower }}{% if not forloop.last %}|{% endif %}{% endfor %}"
+                        data-regioselectivity="{% for r in prot.regioselectivity.all %}{{ r.name|lower }}{% if not forloop.last %}|{% endif %}{% endfor %}"
+                        data-second_sphere_aromatic="{{ prot.second_sphere_aromatic|lower }}"
+                        data-structure="{{ prot.structure_source_name|lower }}"
+                        data-disulfides="{{ prot.disulfide_count|default_if_none:'' }}"
+                        data-binding-aromatics="{% if prot.binding_aromatic_types is not None %}{{ prot.binding_aromatic_types|default:'-' }}{% endif %}"
+                        data-binding-aromatic-count="{{ prot.binding_aromatic_count|default_if_none:'' }}"
+                        data-axial-residue="{{ prot.axial_residue }}"
+                        data-hbond-residues="{{ prot.hbond_residues }}"
+                        data-pi-stacking-residues="{{ prot.pi_stacking_residues }}"
+                        data-cation-pi-residues="{{ prot.cation_pi_residues }}"
+                        data-motif="{{ prot.motif_short }}"
+                        data-motif-full="{{ prot.motif_full }}"
+                        data-distal-axial="{{ prot.distal_axial }}"
+                        data-n-his-motif="{{ prot.n_his_motif }}"
+                        data-internal-his-motif="{{ prot.internal_his_motif }}"
+                        data-binding-surface='{{ prot.binding_surface_json|safe }}'
+                        data-loop-regions='{{ prot.loop_regions_json|safe }}'
+                        data-loop-rmsf-averages='{{ prot.loop_rmsf_averages_json|safe }}'
+                        data-loop-binding-overlap='{{ prot.loop_binding_overlap_json|safe }}'
+                        data-loop-binding-rmsf='{{ prot.loop_binding_rmsf_averages_json|safe }}'
+                        data-flex-min="{% if prot.flex_min %}{{ prot.flex_min }}{% endif %}"
+                        data-flex-max="{% if prot.flex_max %}{{ prot.flex_max }}{% endif %}"
+                        data-sequence-length="{% if prot.sequence_length %}{{ prot.sequence_length }}{% else %}0{% endif %}"
+                        data-cat-length="{{ prot.cat_domain_length|default_if_none:'' }}"
+                        data-sequence-mass="{% if prot.sequence_mass is not None %}{{ prot.sequence_mass|stringformat:".1f" }}{% endif %}"
+                        data-cat-mass="{% if prot.cat_domain_mass is not None %}{{ prot.cat_domain_mass|stringformat:".1f" }}{% endif %}"
+                        data-associated-cbms="{% if prot.associated_CBMs %}{{ prot.associated_CBMs|lower }}{% endif %}"
+                        data-metal="{{ prot.metal|lower|default:'' }}"
+                        data-total-charge="{{ prot.total_charge|default_if_none:'' }}"
+                        data-cat-charge="{{ prot.cat_domain_charge|default_if_none:'' }}">
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" name="filter_protein_ids" value="{{ prot.protein_code }}">
+                                {{ prot.protein_code }}{% if prot.other_names %}<span class="protein-other-names">; {{ prot.other_names }}</span>{% endif %}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {# The values each list criterion offers (value → label), read by criterionOptions() #}
+                    <div id="criteriaOptions" hidden>
+                        <ul data-section="clades">{% for cld in clads %}<li data-value="{{ cld }}">{{ cld }}</li>{% endfor %}</ul>
+                        <ul data-section="structure">{% for value, label in structure_options %}<li data-value="{{ value }}">{{ label }}</li>{% endfor %}</ul>
+                        {# the overview's taxon groups; the key stays "kingdoms" / data-kingdom, as the scripts know it #}
+                        <ul data-section="kingdoms">{% for kingdom in kingdoms %}<li data-value="{{ kingdom }}">{{ kingdom }}</li>{% endfor %}</ul>
+                        <ul data-section="organisms">{% for org in organisms %}<li data-value="{{ org }}">{{ org }}</li>{% endfor %}</ul>
+                        <ul data-section="substrates">{% for subs in substrates %}<li data-value="{{ subs }}">{{ subs }}</li>{% endfor %}{% if has_no_substrate_proteins %}<li data-value="__none__">No substrate assigned</li>{% endif %}</ul>
+                        <ul data-section="regioselectivity">{% for regio, label in regioselectivity_options %}<li data-value="{{ regio }}">{{ label }}</li>{% endfor %}</ul>
+                        <ul data-section="ec">{% for ec in ec_options %}<li data-value="{{ ec }}">{{ ec }}</li>{% endfor %}<li data-value="1.14.99.-">1.14.99.- (unclassified)</li></ul>
+                        <ul data-section="cbms">{% for cbm in cbm_options %}<li data-value="{{ cbm }}">{{ cbm }}</li>{% endfor %}<li data-value="__none__">No CBM</li></ul>
+                        {# bonds with both cysteines in the catalytic domain #}
+                        {# Phe, Trp, Tyr, His on the binding surface, the brace histidines left out #}
+                        <ul data-section="binding_aromatic_types"><li data-value="F">Phe</li><li data-value="W">Trp</li><li data-value="Y">Tyr</li><li data-value="H">His (not the brace)</li><li data-value="-">None</li></ul>
+                        <ul data-section="binding_aromatic_count">{% for n in aromatic_count_options %}<li data-value="{{ n }}">{{ n }} residue{{ n|pluralize }}</li>{% endfor %}</ul>
+                        <ul data-section="disulfides">{% for bonds, count in disulfide_options %}<li data-value="{{ bonds }}">{{ bonds }} bond{{ bonds|pluralize }}</li>{% endfor %}</ul>
+                        <ul data-section="metals">{% for code, name in metal_options %}<li data-value="{{ code|lower }}">{{ name }} ({{ code }})</li>{% endfor %}<li data-value="__none__">No metal</li></ul>
+                    </div>
+                    {# motif values with their counts, for the brace-histidine and second-sphere criteria #}
+                    {{ n_his_motif_options|json_script:"n-his-motif-options" }}
+                    {{ internal_his_motif_options|json_script:"internal-his-motif-options" }}
+                    {{ motif_options|json_script:"motif-options" }}
+                    {{ motif_full_options|json_script:"motif-full-options" }}
+                    {{ distal_axial_options|json_script:"distal-axial-options" }}
+                    <script>
+                        // The catalogue's ranges for the Length / mass and Net charge criteria
+                        window.fullLengthRange = { min: Number('{{ min_sequence_length }}'), max: Number('{{ max_sequence_length }}') };
+                        window.catLengthRange = { min: Number('{{ min_cat_length }}'), max: Number('{{ max_cat_length }}') };
+                        window.fullMassRange = { min: Number('{{ min_sequence_mass }}'), max: Number('{{ max_sequence_mass }}') };
+                        window.catMassRange = { min: Number('{{ min_cat_mass }}'), max: Number('{{ max_cat_mass }}') };
+                        window.totalChargeRange = { min: Number('{{ min_total_charge }}'), max: Number('{{ max_total_charge }}') };
+                        window.catChargeRange = { min: Number('{{ min_cat_charge }}'), max: Number('{{ max_cat_charge }}') };
+                    </script>
+                    </div>
+                </div>
+                
+            </div>
+
+            <div class="right-panel">
+                <!-- tree toolbar: search (matches are ringed in the tree), tree options, compare -->
+                <div class="tree-toolbar" id="treeToolbar">
+                    <div class="global-search" id="globalSearch">
+                        <div class="global-search-bar">
+                            <div class="search-mode-toggle" role="group" aria-label="Search mode">
+                                <button type="button" data-mode="text" class="active" aria-pressed="true" onclick="setSearchMode('text', true)">Text</button>
+                                <button type="button" data-mode="sequence" aria-pressed="false" onclick="setSearchMode('sequence', true)">Sequence</button>
+                            </div>
+                            <textarea id="proteinSearch" rows="1" spellcheck="false" autocomplete="off" aria-label="Search proteins"
+                                      placeholder="Name, PDB code, UniProt ID, organism…"
+                                      oninput="onGlobalSearchInput()" onkeydown="onGlobalSearchKeydown(event)"
+                                      onfocus="autoGrowSearchBox(this)" onblur="collapseSearchBox(this)"></textarea>
+                            <button type="button" onclick="clearSearch()" class="global-search-clear" title="Clear search (Esc)" aria-label="Clear search">✕</button>
+                        </div>
+                    </div>
+                    <div class="tree-toolbar-actions">
+                        <button type="button" class="toolbar-btn" onclick="checkAll()" title="Select every protein">Select all</button>
+                        <button type="button" class="toolbar-btn" onclick="uncheckAll()" title="Deselect every protein and clear the filters">Deselect all</button>
+                        <button type="button" class="toolbar-btn" id="addGroupBtn" onclick="addSelectionAsGroup()" disabled title="Save the selected proteins as a named group, to compare groups (up to {{ max_groups }})">Add as group</button>
+                        <button id="showSelectedBtn" class="compare-btn" type="button" onclick="gatherSelectionsAndSubmit()" disabled title="Please select at least one protein to compare"><span id="compareLabel">Compare selected</span><span class="selected-count" id="selectedCount" aria-live="polite"></span><span class="compare-arrow" aria-hidden="true">→</span></button>
+                    </div>
+                    <div id="groupChips" class="group-chips" hidden></div>
+                    <div id="compareLimitNote" class="compare-limit-note" role="status" hidden></div>
+                    <div id="searchResults" class="search-info" aria-live="polite"></div>
+                    <div id="sequenceHits" class="sequence-hits" hidden></div>
+                </div>
+                <div class="summary">
+                    <!-- the tree window: its controls stay while update_tree redraws #phyloTree -->
+                    <div class="dendrogram-container tree-frame">
+                        <div class="tree-controls">
+                            <label class="tree-option" title="Draw the branches with their lengths (distances)"><input type="checkbox" id="toggle-branch-lengths"> Branch lengths</label>
+                            <label class="tree-option" title="Show or hide the protein names around the tree"><input type="checkbox" id="toggle-tree-labels" checked> Labels</label>
+                            <button type="button" id="export-svg" class="tree-export-btn" title="Download the tree as an SVG image">Export SVG</button>
+                            <div class="tree-alignment-download" title="Download the structural alignment of all catalogue proteins as FASTA">
+                                Alignment (.fasta):
+                                <a href="{% url 'download_alignment' %}?view=catalytic" download>Catalytic domain</a> &middot;
+                                <a href="{% url 'download_alignment' %}?view=full" download>Full length</a>
+                            </div>
+                            <div class="dendrogram-help-icon">
+                                <span class="help-icon" tabindex="0" role="button" aria-label="How to use the tree" aria-describedby="treeHelp">?</span>
+                                <div class="dendrogram-help-tooltip" id="treeHelp" role="tooltip">
+                                    <p class="help-title">Using the tree</p>
+                                    <dl class="help-list">
+                                        <dt>Click a name</dt><dd>select or deselect the protein</dd>
+                                        <dt>Click a branch</dt><dd>select or deselect all proteins under it (line or grey dot)</dd>
+                                        <dt>Zoom</dt><dd>Ctrl + scroll (or pinch), or the &minus; / + buttons; drag to move; <kbd>Shift</kbd>+click a branch to zoom to it</dd>
+                                        <dt>Legend</dt><dd>hover a family to highlight it, click to select it</dd>
+                                        <dt>Hover a name or its dot</dt><dd>details and links &ndash; move onto the box to use them</dd>
+                                    </dl>
+                                    <p class="help-key"><span class="help-dot selected" aria-hidden="true"></span>selected <span class="help-dot match" aria-hidden="true"></span>search match</p>
+                                    <p class="help-note">Built from the catalytic domains only (no CBMs, linkers or tails): BLOSUM62 distances of the structural (US-align) alignment, average linkage (UPGMA).</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="phyloTree">
+                            {{ dendrogram_graph|safe }}
+                        </div>
+                        <div class="tree-zoom" role="group" aria-label="Zoom the tree">
+                            <button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+                            <button type="button" data-zoom="in" title="Zoom in (or Ctrl + scroll)" aria-label="Zoom in">+</button>
+                            <button type="button" data-zoom="reset" title="Show the whole tree" aria-label="Reset zoom">&#x27F2;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+
+    <script>
+
+function parseSubstrates(substratesString) {
+    if (!substratesString) return [];
+    return substratesString.toLowerCase()
+        .split('|')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+}
+
+function parseRegioselectivity(regioselectivityString) {
+    if (!regioselectivityString) return [];
+    // Split by pipe and extract simplified values (C1, C4, C1/C4)
+    const values = regioselectivityString.toLowerCase()
+        .split('|')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    
+    const simplifiedValues = new Set();
+    values.forEach(val => {
+        // Remove text in brackets (e.g., "(xyloglucan)", "(chitin)", "(PASC)")
+        const cleaned = val.replace(/\([^)]*\)/g, '').trim();
+        
+        // Extract C1, C4, C1/C4 - check for C1/C4 first (most specific)
+        if (cleaned.includes('c1') && cleaned.includes('c4')) {
+            simplifiedValues.add('C1-hydroxylating/C4-dehydrogenating');
+        } else if (cleaned.includes('c1')) {
+            simplifiedValues.add('C1-hydroxylating');
+        } else if (cleaned.includes('c4')) {
+            simplifiedValues.add('C4-dehydrogenating');
+        }
+    });
+    
+    return Array.from(simplifiedValues);
+}
+
+function updateActiveUsers(){
+    fetch("/catalogue/active-users/")
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("active-users-count").innerText = data.active_users;
+        })
+        .catch(err => console.error("Active users fetch error:", err));
+}
+updateActiveUsers();
+setInterval(updateActiveUsers, 5000);
+
+// A comparison holds up to MAX_COMPARE proteins (the compare page loads every structure and
+// draws every plot once per protein); a whole family is the exception, since the server keeps
+// its comparison ready. The server checks the same (catalogue/compare_limits.py).
+const MAX_COMPARE = {{ max_compare }};
+
+// --- Groups ("Add as group") ---------------------------------------------------------------
+// Named sets of proteins to compare with each other (groups.py on the server). They live apart
+// from the ticks, since the criteria replace the selection on every run: "Add as group" saves
+// the ticked proteins as a group and unticks them for the next one; Compare opens the groups and
+// whatever is still ticked (shown as "Ungrouped"). Kept for the browser tab (sessionStorage) and
+// in the compare page's address, which "Back to selection" brings back.
+const MAX_GROUPS = {{ max_groups }};
+const GROUP_COLORS = ['#eb6834', '#1baf7a', '#2a78d6'];   // groups.GROUP_COLORS
+let proteinGroupsState = [];
+
+function saveGroups() {
+    try { sessionStorage.setItem('lpmocat.groups', JSON.stringify(proteinGroupsState)); } catch (e) {}
+}
+function loadGroups() {
+    if (window._groupsLoaded) return;
+    window._groupsLoaded = true;
+    const known = new Set(Array.from(document.querySelectorAll('input[name="filter_protein_ids"]')).map(cb => cb.value));
+    let groups = [];
+    const fromPage = document.getElementById('groupsOnLoad');
+    try {
+        groups = fromPage ? JSON.parse(fromPage.textContent)
+                          : JSON.parse(sessionStorage.getItem('lpmocat.groups') || '[]');
+    } catch (e) { groups = []; }
+    proteinGroupsState = (Array.isArray(groups) ? groups : [])
+        .map(g => ({name: String(g.name || ''), codes: (g.codes || []).filter(c => known.has(c))}))
+        .filter(g => g.codes.length).slice(0, MAX_GROUPS);
+    saveGroups();
+}
+function groupedCodes() {
+    return new Set(proteinGroupsState.flatMap(g => g.codes));
+}
+// What Compare opens: each group's proteins in order, then the ticked ones outside the groups
+function comparedCodes() {
+    const grouped = groupedCodes();
+    const ticked = window.getEffectiveSelectedProteins().filter(code => !grouped.has(code));
+    return proteinGroupsState.flatMap(g => g.codes).concat(ticked);
+}
+// The group a protein is in, or null
+function groupOfCode(code) {
+    return proteinGroupsState.find(g => g.codes.includes(code)) || null;
+}
+// A protein in a group cannot be selected again (it would be compared twice): every way of
+// selecting goes through the boxes, and these are unticked for grouped proteins after each change
+// (untickGroupedProteins, from updateDendrogramHighlighting and updateShowSelectedButton); the tree
+// skips them itself (CircularDendrogram.proteinCheckboxes / toggleProteinSelection).
+function isGroupedProtein(code) {
+    return groupedCodes().has(code);
+}
+window.isGroupedProtein = isGroupedProtein;
+function untickGroupedProteins() {
+    if (!proteinGroupsState.length) return 0;
+    const grouped = groupedCodes();
+    let unticked = 0;
+    document.querySelectorAll('input[name="filter_protein_ids"]:checked').forEach(cb => {
+        if (grouped.has(cb.value)) { cb.checked = false; unticked++; }
+    });
+    return unticked;
+}
+// a short note beside the group chips (a click on a grouped protein in the tree)
+let groupNotice = '', groupNoticeTimer = null;
+window.notifyGroupedProtein = function (code) {
+    const group = groupOfCode(code);
+    groupNotice = `${code} is in the group “${group ? group.name : ''}”: a protein can be in one group only.`;
+    clearTimeout(groupNoticeTimer);
+    groupNoticeTimer = setTimeout(() => { groupNotice = ''; renderGroupChips(); }, 4000);
+    renderGroupChips();
+};
+function addSelectionAsGroup() {
+    const ticked = window.getEffectiveSelectedProteins();
+    if (!ticked.length) return;
+    // a protein belongs to one group only: the ones already in a group stay there
+    const free = ticked.filter(code => !groupOfCode(code));
+    const taken = ticked.filter(code => groupOfCode(code));
+    const takenText = taken.map(code => `${code} (${groupOfCode(code).name})`).join(', ');
+    if (!free.length) {
+        window.alert('A protein can be in one group only, and all the selected proteins are in a group already: '
+            + `${takenText}. To move them, remove their group (its ✕) first.`);
+        return;
+    }
+    if (proteinGroupsState.length >= MAX_GROUPS) {
+        window.alert(`A comparison holds up to ${MAX_GROUPS} groups. Remove one (its ✕) to add another.`);
+        return;
+    }
+    const suggested = `Group ${proteinGroupsState.length + 1}`;
+    const leftOut = taken.length
+        ? `\n\n${taken.length} selected protein(s) already in a group are left out (a protein can be in one group only): ${takenText}.`
+        : '';
+    const name = window.prompt(`Name of the group of ${free.length} protein(s), e.g. "Cellulose only":${leftOut}`, suggested);
+    if (name === null) return;
+    proteinGroupsState.push({name: name.trim().slice(0, 40) || suggested, codes: free});
+    saveGroups();
+    // untick them, ready for the next group's query
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]:checked').forEach(cb => { cb.checked = false; });
+    });
+    renderGroupChips();
+}
+function removeGroup(index) {
+    proteinGroupsState.splice(index, 1);
+    saveGroups();
+    renderGroupChips();
+    updateShowSelectedButton();
+}
+function renameGroup(index) {
+    const group = proteinGroupsState[index];
+    const name = window.prompt('New name of the group:', group.name);
+    if (name === null || !name.trim()) return;
+    group.name = name.trim().slice(0, 40);
+    saveGroups();
+    renderGroupChips();
+}
+// The grouped proteins keep a ring in their group's colour in the tree
+function markGroupsInTree() {
+    window.dendrogramGroupMarks = Object.fromEntries(proteinGroupsState.flatMap(
+        (group, index) => group.codes.map(code => [code, GROUP_COLORS[index]])));
+    if (window.currentDendrogram && window.currentDendrogram.renderGroupMarks) {
+        window.currentDendrogram.renderGroupMarks();
+    }
+}
+function renderGroupChips() {
+    markGroupsInTree();
+    const box = document.getElementById('groupChips');
+    if (!box) return;
+    box.innerHTML = '';
+    box.hidden = !proteinGroupsState.length;
+    proteinGroupsState.forEach((group, index) => {
+        const chip = document.createElement('span');
+        chip.className = 'group-chip';
+        chip.style.setProperty('--group-color', GROUP_COLORS[index]);
+        chip.title = group.codes.join(', ');
+        chip.innerHTML = '<span class="group-swatch"></span>';
+        const name = document.createElement('button');
+        name.type = 'button';
+        name.className = 'group-name';
+        name.textContent = group.name;
+        name.title = 'Rename the group';
+        name.addEventListener('click', () => renameGroup(index));
+        const count = document.createElement('span');
+        count.className = 'group-count';
+        count.textContent = group.codes.length;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'group-remove';
+        remove.textContent = '✕';
+        remove.title = 'Remove the group';
+        remove.setAttribute('aria-label', `Remove the group ${group.name}`);
+        remove.addEventListener('click', () => removeGroup(index));
+        chip.append(name, count, remove);
+        // hover: its proteins in the tree
+        chip.addEventListener('mouseenter', () => window.currentDendrogram
+            && window.currentDendrogram.setOverviewHighlight && window.currentDendrogram.setOverviewHighlight(group.codes));
+        chip.addEventListener('mouseleave', () => window.currentDendrogram
+            && window.currentDendrogram.setOverviewHighlight && window.currentDendrogram.setOverviewHighlight(null));
+        box.appendChild(chip);
+    });
+    if (proteinGroupsState.length) {
+        const hint = document.createElement('span');
+        hint.className = 'group-hint';
+        const ticked = window.getEffectiveSelectedProteins().length;
+        hint.classList.toggle('notice', !!groupNotice);
+        hint.textContent = groupNotice
+            || (ticked ? `+ ${ticked} selected, compared as "Ungrouped"` : 'Select the next group\'s proteins, or compare');
+        box.appendChild(hint);
+    }
+}
+
+function compareLimitState() {
+    const entries = Array.from(document.querySelectorAll('.protein-entry2'));
+    // what Compare opens: the groups' proteins and the ticked ones
+    const inComparison = new Set(comparedCodes());
+    const selected = entries.filter(entry => inComparison.has(entry.querySelector('input[name="filter_protein_ids"]').value));
+    const families = new Set(selected.map(entry => entry.getAttribute('data-clade')));
+    const family = families.size === 1 ? selected[0].getAttribute('data-clade') : null;
+    const wholeFamily = !!family
+        && entries.filter(entry => entry.getAttribute('data-clade') === family).length === selected.length;
+    return { count: selected.length, over: selected.length > MAX_COMPARE,
+             family: wholeFamily ? family.toUpperCase() : null };
+}
+
+function gatherSelectionsAndSubmit() {
+    const limit = compareLimitState();
+    if (limit.over && !limit.family) return;
+    if (limit.over && !window.confirm(
+        `This opens all ${limit.count} proteins of ${limit.family} at once: `
+        + `a page of about ${Math.round(limit.count * 0.7)} MB with ${limit.count} structures in the 3D viewer. `
+        + 'It can take a minute or more to load and needs a computer with enough memory.\n\nOpen it?')) return;
+    console.time("gatherSelectionsAndSubmit");
+    const start = performance.now();
+    const loadingOverlay = document.getElementById('comparisonLoadingOverlay');
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+    }
+    
+    if (loadingMessage) {
+        loadingMessage.textContent = 'Loading protein data from database...';
+    }
+    
+    const submitForm = document.createElement('form');
+    submitForm.method = 'POST';
+    submitForm.action = ''; 
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken;
+    submitForm.appendChild(csrfInput);
+    
+    comparedCodes().forEach(code => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'protein_ids';
+        hiddenInput.value = code;
+        submitForm.appendChild(hiddenInput);
+    });
+    if (proteinGroupsState.length) {
+        const groupsInput = document.createElement('input');
+        groupsInput.type = 'hidden';
+        groupsInput.name = 'groups';
+        groupsInput.value = JSON.stringify(proteinGroupsState);
+        submitForm.appendChild(groupsInput);
+    }
+    
+    document.body.appendChild(submitForm);
+    submitForm.submit();
+
+    console.timeEnd("gatherSelectionsAndSubmit");
+    console.log("Time to submit (ms):", performance.now() - start);
+}
+function selectProteinWithCookie(selected_proteins) {
+    if (!selected_proteins || selected_proteins.length === 0) return;
+
+    temporarilyDisableCheckboxListeners(() => {
+        selected_proteins.forEach((proteinCode) => {
+            const filterCheckbox = document.querySelector(`input[name="filter_protein_ids"][value="${proteinCode}"]`);
+            if (filterCheckbox) {
+                filterCheckbox.checked = true;
+            }
+        });
+    });
+
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+    }, 150);
+}
+
+window.getEffectiveSelectedProteins = function() {
+    const selected = new Set();
+    
+    const grouped = proteinGroupsState.length ? groupedCodes() : null;
+    document.querySelectorAll('input[name="filter_protein_ids"]:checked').forEach(cb => {
+        if (!grouped || !grouped.has(cb.value)) selected.add(cb.value);
+    });
+    
+    return Array.from(selected);
+}
+
+function updateDendrogramHighlighting() {
+    untickGroupedProteins();
+    syncSearchHitCheckboxes();
+    if (window.catalogueOverview) window.catalogueOverview.selectionChanged();
+    const selectedProteins = window.getEffectiveSelectedProteins();
+    if (window.currentDendrogram) {
+        if (typeof window.currentDendrogram.safeUpdate === 'function') {
+            window.currentDendrogram.safeUpdate(selectedProteins);
+        } else if (typeof window.currentDendrogram.updateSelection === 'function') {
+            window.currentDendrogram.updateSelection(selectedProteins);
+        } else {
+            console.warn('err:dendrogram update not available');
+        }
+    } else {
+        console.warn('err: window.currentDendrogram');
+    }
+}
+
+function updateShowSelectedButton(){
+    untickGroupedProteins();
+    const btn = document.getElementById('showSelectedBtn');
+    if (!btn) return;
+    const limit = compareLimitState();
+    const nSelected = limit.count;
+    const anySelected = nSelected > 0;
+    const blocked = limit.over && !limit.family;
+    btn.disabled = !anySelected || blocked;
+    const label = document.getElementById('compareLabel');
+    if (label) label.textContent = proteinGroupsState.length ? 'Compare groups' : 'Compare selected';
+    const addGroup = document.getElementById('addGroupBtn');
+    if (addGroup) addGroup.disabled = !window.getEffectiveSelectedProteins().length;
+    renderGroupChips();
+    const count = document.getElementById('selectedCount');
+    if (count && count.textContent !== (anySelected ? String(nSelected) : '')) {
+        count.textContent = anySelected ? String(nSelected) : '';
+        if (anySelected && !blocked) {
+            // restart the pulse
+            btn.classList.remove('pulse');
+            void btn.offsetWidth;
+            btn.classList.add('pulse');
+        }
+    }
+    const note = document.getElementById('compareLimitNote');
+    let message = '';
+    if (blocked) {
+        message = `A comparison holds up to ${MAX_COMPARE} proteins; ${nSelected} are selected. `
+            + 'Narrow the selection, or select one whole family, which can be compared as it is.';
+    } else if (limit.over) {
+        message = `All ${nSelected} proteins of ${limit.family} are selected: a whole family can be compared, but the page is large and slow to load.`;
+    }
+    if (note) {
+        note.textContent = message;
+        note.hidden = !message;
+        note.classList.toggle('blocked', blocked);
+    }
+    btn.title = !anySelected ? 'Please select at least one protein to compare'
+        : blocked ? `A comparison holds up to ${MAX_COMPARE} proteins` : '';
+}
+
+// // A protein box changed (ticked in the tree, by the search bar, the overview or the criteria)
+function handleCheckboxChange(event) {
+    if (event && event.target && event.target.name === 'filter_protein_ids') {
+        reorderProteinEntries();
+    }
+
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+        updateFilterSummary();
+    }, 100);
+}
+
+function reorderProteinEntries() {
+    const container = document.getElementById('proteinFilterContent');
+    if (!container) return;
+    const entries = Array.from(container.querySelectorAll('.protein-entry2'));
+    const checked = entries.filter(e => e.querySelector('input[name="filter_protein_ids"]').checked);
+    const unchecked = entries.filter(e => !e.querySelector('input[name="filter_protein_ids"]').checked);
+    checked.concat(unchecked).forEach(e => container.appendChild(e));
+}
+
+function attachCheckboxListeners() {
+    document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => {
+        cb.removeEventListener("change", handleCheckboxChange);
+        cb.addEventListener("change", handleCheckboxChange);
+    });
+
+    setTimeout(() => {
+        updateShowSelectedButton();
+        updateFilterSummary();
+    }, 0);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadGroups();
+    updateShowSelectedButton();
+    updateFilterSummary();
+    attachCheckboxListeners();
+    
+    const sectionObserver = new MutationObserver((mutations) => {
+        let shouldReattach = false;
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === 1 && (node.querySelector('input[type="checkbox"]') || node.matches('input[type="checkbox"]'))) {
+                        shouldReattach = true;
+                    }
+                });
+            }
+        });
+        
+        if (shouldReattach) {
+            setTimeout(() => {
+                attachCheckboxListeners();
+            }, 100);
+        }
+    });
+    
+    const proteinFilterContent = document.getElementById('proteinFilterContent');
+    if (proteinFilterContent) {
+        sectionObserver.observe(proteinFilterContent, { childList: true, subtree: true });
+    }
+    
+    const dendrogramObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                setTimeout(() => {
+                    attachCheckboxListeners();
+                }, 100);
+            }
+        });
+    });
+    
+    const phyloTree = document.getElementById('phyloTree');
+    if (phyloTree) {
+        dendrogramObserver.observe(phyloTree, { childList: true, subtree: true });
+    }
+    
+    sessionStorage.removeItem('loadingStartTime');
+    sessionStorage.removeItem('estimatedTime');
+    sessionStorage.removeItem('isLoading');
+    
+    setTimeout(() => {
+        if (window.currentDendrogram) {
+            if (typeof window.currentDendrogram.ensureVisibility === 'function') {
+                window.currentDendrogram.ensureVisibility();
+            }
+            updateDendrogramHighlighting();
+            applySearchHitsToDendrogram();
+        } else {
+            console.log('err: dendrogram not initialized');
+        }
+    }, 1000);
+});
+
+function temporarilyDisableCheckboxListeners(callback) {
+    document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => {
+        cb.removeEventListener("change", handleCheckboxChange);
+    });
+
+    callback();
+
+    setTimeout(() => {
+        attachCheckboxListeners();
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+    }, 50);
+}
+
+
+// ---- Search bar (above the filter panel + dendrogram) -----------------------------------
+// Text mode filters the protein list by name / PDB / UniProt / organism... as you type.
+// Sequence mode sends the pasted sequence to sequence_search/: full sequences are ranked by
+// local alignment, short queries (< 20 aa) are exact motif matches (X = any residue).
+// Pasting a sequence switches to Sequence mode automatically; picking a mode by hand sticks
+// until the box is cleared. Matches are ringed in the dendrogram and the list is filtered.
+const SEQUENCE_AUTODETECT_MIN = 20;
+const SEARCH_PLACEHOLDERS = {
+    text: 'Name, PDB code, UniProt ID, organism…',
+    sequence: 'Protein sequence, FASTA or short motif…',
+};
+let searchMode = 'text';
+let searchModeLocked = false;
+let sequenceSearchTimer = null;
+let sequenceSearchController = null;
+window.lpmoSearchHits = null;   // {codes, ranked} for the dendrogram; null = no active search
+
+function looksLikeSequence(text) {
+    const t = text.trim();
+    if (t.startsWith('>')) return true;
+    // drop whitespace and pure-number tokens (GenBank-style numbering), keep "AA9"-like words
+    const residues = t.split(/\s+/).filter(tok => !/^\d+$/.test(tok)).join('');
+    return residues.length >= SEQUENCE_AUTODETECT_MIN && /^[ACDEFGHIKLMNPQRSTVWYX]+\*?$/i.test(residues);
+}
+
+function onGlobalSearchInput() {
+    const box = document.getElementById('proteinSearch');
+    autoGrowSearchBox(box);
+    if (!box.value.trim()) searchModeLocked = false;
+    if (!searchModeLocked) setSearchMode(looksLikeSequence(box.value) ? 'sequence' : 'text', false);
+    runSearch();
+}
+
+function onGlobalSearchKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();   // single-line box; Shift+Enter still inserts a newline
+        if (searchMode === 'sequence') {
+            clearTimeout(sequenceSearchTimer);
+            runSequenceSearch();
+        }
+    } else if (event.key === 'Escape') {
+        clearSearch();
+    }
+}
+
+function autoGrowSearchBox(box) {
+    box.style.height = 'auto';
+    const border = box.offsetHeight - box.clientHeight;
+    box.style.height = Math.min(box.scrollHeight + border, 140) + 'px';
+}
+
+// A pasted sequence shrinks back to one line when the box loses focus, so the hit table and
+// dendrogram stay in view; focusing the box expands it again.
+function collapseSearchBox(box) {
+    box.style.height = '';
+    box.scrollTop = 0;
+}
+
+function setSearchMode(mode, byUser) {
+    if (byUser) searchModeLocked = true;
+    const changed = mode !== searchMode;
+    searchMode = mode;
+    document.querySelectorAll('.search-mode-toggle button').forEach(btn => {
+        const active = btn.dataset.mode === mode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active);
+    });
+    document.getElementById('globalSearch').classList.toggle('sequence-mode', mode === 'sequence');
+    const box = document.getElementById('proteinSearch');
+    box.placeholder = SEARCH_PLACEHOLDERS[mode];
+    autoGrowSearchBox(box);
+    if (byUser) {
+        if (changed) runSearch();
+        box.focus();
+    }
+}
+
+function runSearch() {
+    clearTimeout(sequenceSearchTimer);
+    if (searchMode === 'sequence') {
+        sequenceSearchTimer = setTimeout(runSequenceSearch, 400);
+    } else {
+        if (sequenceSearchController) sequenceSearchController.abort();
+        renderSequenceHits(null);
+        searchProteins();
+    }
+}
+
+function setSearchStatus(html, isError = false) {
+    const status = document.getElementById('searchResults');
+    status.innerHTML = html;
+    status.classList.toggle('search-error', isError);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+}
+
+// codes: protein codes matching the search (best first if ranked), or null = no search.
+function applySearchMatches(codes, ranked = false) {
+    const matching = codes ? new Set(codes) : null;
+    document.querySelectorAll('.protein-entry2').forEach(entry => {
+        const code = entry.querySelector('input[name="filter_protein_ids"]').value;
+        const hit = !matching || matching.has(code);
+        entry.classList.toggle('search-hidden', !hit);
+        entry.classList.toggle('search-highlight', !!matching && hit);
+    });
+    window.lpmoSearchHits = codes ? { codes: codes, ranked: ranked } : null;
+    applySearchHitsToDendrogram();
+    document.querySelectorAll('.filter-field').forEach(refreshListFilter);
+}
+
+function applySearchHitsToDendrogram() {
+    const dendrogram = window.currentDendrogram;
+    if (!dendrogram || typeof dendrogram.setSearchHits !== 'function') return;
+    const hits = window.lpmoSearchHits;
+    dendrogram.setSearchHits(hits ? hits.codes : null, hits ? hits.ranked : false);
+}
+
+function searchProteins() {
+    const searchTerm = document.getElementById('proteinSearch').value.toLowerCase().trim();
+    if (searchTerm === '') {
+        applySearchMatches(null);
+        setSearchStatus('');
+        return;
+    }
+    const matches = [];
+    document.querySelectorAll('.protein-entry2').forEach(entry => {
+        const proteinCode = entry.getAttribute('data-protein-code') || '';
+        const proteinName = entry.getAttribute('data-protein-name') || '';
+        const otherNames = entry.getAttribute('data-other-names') || '';
+        const pdb = entry.getAttribute('data-pdb') || '';
+        const uniprot = entry.getAttribute('data-uniprot') || '';
+        const clade = entry.getAttribute('data-clade') || '';
+        const organism = entry.getAttribute('data-organism') || '';
+        const substratesData = entry.getAttribute('data-substrates') || '';
+        const substrates = parseSubstrates(substratesData).join(' ');
+        const regioselectivity = entry.getAttribute('data-regioselectivity') || '';
+        const second_sphere_aromatic = entry.getAttribute('data-second_sphere_aromatic') || '';
+
+        const searchableText = `${proteinCode} ${otherNames} ${proteinName} ${pdb} ${uniprot} ${clade} ${organism} ${substrates} ${regioselectivity} ${second_sphere_aromatic}`;
+        if (searchableText.includes(searchTerm)) {
+            matches.push(entry.querySelector('input[name="filter_protein_ids"]').value);
+        }
+    });
+    applySearchMatches(matches);
+    const selectButton = matches.length
+        ? ` <button type="button" class="select-hits-btn inline" onclick="selectAllSearchHits()">Select all ${matches.length}</button>`
+        : '';
+    setSearchStatus(`Found <strong>${matches.length}</strong> protein(s) matching "${escapeHtml(searchTerm)}"${selectButton}`);
+}
+
+async function runSequenceSearch() {
+    const query = document.getElementById('proteinSearch').value;
+    if (sequenceSearchController) sequenceSearchController.abort();
+    if (!query.trim()) {
+        renderSequenceHits(null);
+        applySearchMatches(null);
+        setSearchStatus('');
+        return;
+    }
+    const controller = sequenceSearchController = new AbortController();
+    setSearchStatus('<span class="search-spinner"></span>Searching the catalogue…');
+    let data;
+    try {
+        const response = await fetch("{% url 'sequence_search' %}", {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({ query: query }),
+        });
+        data = await response.json();
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        data = { ok: false, error: 'Sequence search failed - please try again.' };
+    }
+    if (controller !== sequenceSearchController) return;   // a newer query is in flight
+    if (!data.ok) {
+        renderSequenceHits(null);
+        applySearchMatches(null);
+        setSearchStatus(escapeHtml(data.error), true);
+        return;
+    }
+    // No significant hit -> leave the list and tree unfiltered; the table explains why.
+    const matched = data.hits.filter(h => h.significant).map(h => h.code);
+    applySearchMatches(matched.length ? matched : null, data.mode === 'alignment');
+    renderSequenceHits(data);
+}
+
+function formatEvalue(e) {
+    if (e === 0) return '0';
+    if (e >= 0.01) return e.toFixed(2);
+    return e.toExponential(0);
+}
+
+// Library scripts the first tree loaded (see updateDendrogramFromCheckboxes)
+const treeLibraryScripts = new Set(
+    Array.from(document.querySelectorAll('#phyloTree script[src]')).map(script => script.src));
+
+// Tree window: branch lengths, labels and SVG export act on the tree drawn now (update_tree replaces it).
+document.addEventListener('DOMContentLoaded', () => {
+    const branchLengths = document.getElementById('toggle-branch-lengths');
+    const treeLabels = document.getElementById('toggle-tree-labels');
+    const exportSvg = document.getElementById('export-svg');
+    if (branchLengths) {
+        branchLengths.addEventListener('change', () => {
+            const tree = window.currentDendrogram;
+            if (tree && tree.config.showBranchLengths !== branchLengths.checked) tree.toggleBranchLengths();
+        });
+    }
+    if (treeLabels) {
+        try {
+            if (localStorage.getItem('lpmocat.treeLabels') === 'off') treeLabels.checked = false;
+        } catch (e) { /* storage unavailable: labels shown */ }
+        const applyLabels = () => {
+            if (window.currentDendrogram) window.currentDendrogram.setLabelsVisible(treeLabels.checked);
+        };
+        treeLabels.addEventListener('change', () => {
+            applyLabels();
+            try { localStorage.setItem('lpmocat.treeLabels', treeLabels.checked ? 'on' : 'off'); } catch (e) { /* ignore */ }
+        });
+        applyLabels();
+    }
+    document.querySelectorAll('.tree-zoom [data-zoom]').forEach(button => {
+        button.addEventListener('click', () => {
+            const tree = window.currentDendrogram;
+            if (!tree || !tree.zoom) return;
+            const action = button.dataset.zoom;
+            if (action === 'reset') tree.resetZoom();
+            else tree.zoomBy(action === 'in' ? 1.6 : 1 / 1.6);
+        });
+    });
+    if (exportSvg) {
+        exportSvg.addEventListener('click', () => {
+            if (window.currentDendrogram) window.currentDendrogram.exportSVG();
+        });
+    }
+});
+
+// The hit list lies over the top of the tree: it can be folded to its header.
+function toggleSequenceHitList(button) {
+    const panel = document.getElementById('sequenceHits');
+    const folded = panel.classList.toggle('folded');
+    button.textContent = folded ? 'Show list' : 'Hide list';
+}
+
+function renderSequenceHits(data) {
+    const panel = document.getElementById('sequenceHits');
+    // new results (or none) open the list again, so the button's "Hide list" is true
+    panel.classList.remove('folded');
+    if (!data) {
+        panel.hidden = true;
+        panel.innerHTML = '';
+        return;
+    }
+    const hits = data.hits;
+    const nMatched = hits.filter(h => h.significant).length;
+    const header = data.header ? ` <span class="query-header" title="${escapeHtml(data.header)}">${escapeHtml(data.header)}</span>` : '';
+    const eCut = formatEvalue(data.significant_evalue);
+    let summary;
+    if (data.mode === 'motif') {
+        setSearchStatus(`Motif search (queries under 20 residues are matched exactly; X = any residue)`);
+        summary = nMatched
+            ? `Motif <code>${escapeHtml(data.motif)}</code> found in <strong>${nMatched}</strong> protein(s)`
+            : `Motif <code>${escapeHtml(data.motif)}</code> not found in any catalogue protein`;
+    } else {
+        setSearchStatus(`Query: ${data.query_length} aa${header} · local alignment (BLOSUM62), ranked by score`);
+        summary = nMatched
+            ? `<strong>${nMatched}</strong> significant hit(s) <span class="muted">(E ≤ ${eCut})</span>`
+            : `No significant hits <span class="muted">(E ≤ ${eCut})</span>${hits.length ? ' - closest matches:' : ''}`;
+    }
+
+    let rows;
+    let head;
+    if (data.mode === 'motif') {
+        head = '<th></th><th>Protein</th><th>Family</th><th class="num">Matches</th><th>Position(s) in sequence</th>';
+        rows = hits.map(h => `
+            <tr>
+                ${hitCheckboxCell(h)}
+                ${hitProteinCell(h)}
+                <td>${escapeHtml(h.clade)}</td>
+                <td class="num">${h.positions.length}</td>
+                <td class="positions">${h.positions.slice(0, 8).join(', ')}${h.positions.length > 8 ? ', …' : ''}</td>
+            </tr>`).join('');
+    } else {
+        head = '<th></th><th>Protein</th><th>Family</th><th>Identity</th><th class="num">Query cover</th><th class="num" title="Approximate BLAST-style E-value with the catalogue as the database">E-value</th>';
+        rows = hits.map(h => `
+            <tr class="${h.significant ? '' : 'weak'}" title="Query ${h.query_start}-${h.query_end} aligned to ${h.code} ${h.target_start}-${h.target_end} (${h.aligned_length} columns, ${h.bits} bits)">
+                ${hitCheckboxCell(h)}
+                ${hitProteinCell(h)}
+                <td>${escapeHtml(h.clade)}</td>
+                <td class="identity"><span class="identity-bar"><span style="width: ${h.identity}%"></span></span>${h.identity.toFixed(1)}%</td>
+                <td class="num">${h.query_coverage.toFixed(0)}%</td>
+                <td class="num">${formatEvalue(h.evalue)}</td>
+            </tr>`).join('');
+    }
+
+    panel.innerHTML = `
+        <div class="sequence-hits-header">
+            <div>${summary}${nMatched ? ' <span class="hit-legend"><span class="hit-swatch"></span>ringed in the tree</span>' : ''}</div>
+            <div class="sequence-hits-actions">
+                ${nMatched ? `<button type="button" class="select-hits-btn" onclick="selectAllSearchHits()">Select all ${nMatched} hit(s)</button>` : ''}
+                ${hits.length ? '<button type="button" class="hits-toggle-btn" onclick="toggleSequenceHitList(this)">Hide list</button>' : ''}
+            </div>
+        </div>
+        ${hits.length ? `<div class="sequence-hits-scroll"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>` : ''}`;
+    panel.hidden = false;
+    syncSearchHitCheckboxes();
+}
+
+function hitCheckboxCell(hit) {
+    return `<td class="select"><input type="checkbox" data-code="${escapeHtml(hit.code)}"
+                aria-label="Select ${escapeHtml(hit.code)} for comparison"
+                onchange="toggleSearchHitSelection(this.dataset.code, this.checked)"></td>`;
+}
+
+function hitProteinCell(hit) {
+    const url = `/catalogue/compare/proteins/${encodeURIComponent(hit.code)}/`;
+    const aliases = hit.other_names ? `<span class="aliases">${escapeHtml(hit.other_names)}</span>` : '';
+    return `<td class="protein"><a href="${url}" target="_blank" rel="noopener">${escapeHtml(hit.code)}</a>${aliases}</td>`;
+}
+
+function proteinCheckbox(code) {
+    return document.querySelector(`input[name="filter_protein_ids"][value="${CSS.escape(code)}"]`);
+}
+
+function toggleSearchHitSelection(code, checked) {
+    const checkbox = proteinCheckbox(code);
+    if (!checkbox || checkbox.checked === checked) return;
+    checkbox.checked = checked;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// Select every protein the current search matched: text matches, or significant sequence hits.
+function selectAllSearchHits() {
+    const hits = window.lpmoSearchHits;
+    if (!hits) return;
+    temporarilyDisableCheckboxListeners(() => {
+        hits.codes.forEach(code => {
+            const checkbox = proteinCheckbox(code);
+            if (checkbox) checkbox.checked = true;
+        });
+    });
+    reorderProteinEntries();
+    setTimeout(updateFilterSummary, 100);
+}
+
+// Keep the hit table's checkboxes in step with the protein selection (called from
+// updateDendrogramHighlighting, which runs after every selection change).
+function syncSearchHitCheckboxes() {
+    document.querySelectorAll('#sequenceHits input[data-code]').forEach(box => {
+        const checkbox = proteinCheckbox(box.dataset.code);
+        box.checked = !!(checkbox && checkbox.checked);
+    });
+}
+
+function clearSearch() {
+    const box = document.getElementById('proteinSearch');
+    clearTimeout(sequenceSearchTimer);
+    if (sequenceSearchController) sequenceSearchController.abort();
+    box.value = '';
+    searchModeLocked = false;
+    setSearchMode('text', false);
+    renderSequenceHits(null);
+    applySearchMatches(null);
+    setSearchStatus('');
+    box.focus();
+}
+
+function checkAll() {
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => cb.checked = true);
+    });
+
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+        updateFilterSummary();
+    }, 100);
+}
+
+function uncheckAll() {
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => cb.checked = false);
+    });
+
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+        updateFilterSummary();
+    }, 100);
+}
+
+function updateFilterSummary() {
+    const summaryDiv = document.getElementById('filterSummary');
+    const proteinCount = document.querySelectorAll('input[name="filter_protein_ids"]:checked').length;
+    if (!proteinCount) {
+        summaryDiv.style.display = 'none';
+        summaryDiv.innerHTML = '';
+        return;
+    }
+    summaryDiv.innerHTML = `<strong>Selected: ${proteinCount} protein(s)</strong>`;
+    summaryDiv.style.display = 'block';
+}
+
+function getLoopLength(rangeStr) {
+    // "24-69", or several runs "24-24,27-28,30-31": the binding surface of a loop is
+    // scattered residues (pipeline step 7c), so the runs are summed.
+    try {
+        if (!rangeStr || typeof rangeStr !== 'string') return 0;
+        return rangeStr.split(',').reduce((total, run) => {
+            const parts = run.split('-');
+            const start = parseInt(parts[0]);
+            const end = parseInt(parts[1]);
+            return (isNaN(start) || isNaN(end)) ? total : total + (end - start + 1);
+        }, 0);
+    } catch {
+        return 0;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded with expandable sections');
+    
+    sessionStorage.removeItem('loadingStartTime');
+    sessionStorage.removeItem('estimatedTime');
+    sessionStorage.removeItem('isLoading');
+    
+    setTimeout(() => {
+        if (window.currentDendrogram) {
+            console.log('Dendrogram detected, initializing with current selections');
+            if (typeof window.currentDendrogram.ensureVisibility === 'function') {
+                window.currentDendrogram.ensureVisibility();
+            }
+            updateDendrogramHighlighting();
+        } else {
+            console.log('err: dendrogram not initialized');
+        }
+    }, 1000);
+});
+
+// ---- Selection criteria: rows of criteria joined with AND / OR / NOT -------------
+let filterFieldCounter = 0;
+
+// one empty row to start from
+document.addEventListener('DOMContentLoaded', () => {
+    const rows = document.getElementById('filterFieldsContainer');
+    if (!rows.children.length) addFilterField();
+    // the rows sit inside the browse form: Enter in one of their fields must not submit it
+    rows.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.target.tagName !== 'INPUT') return;
+        event.preventDefault();
+        if (event.target.type === 'number') event.target.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+});
+
+function addFilterField() {
+    const container = document.getElementById('filterFieldsContainer');
+    const fieldId = `filterField_${filterFieldCounter++}`;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'filter-field';
+    fieldDiv.id = fieldId;
+    
+    fieldDiv.innerHTML = `
+        <div class="filter-field-row">
+            <select class="search-mode-select" aria-label="How this row joins the rows above">
+                <option value="AND">AND</option>
+                <option value="OR">OR</option>
+                <option value="NOT">NOT</option>
+            </select>
+            <select class="filter-section-select" aria-label="Criterion" onchange="updateFilterOptions(this)">
+                <option value="">Choose a criterion…</option>
+                <option value="proteins">Proteins</option>
+                <option value="clades">Families</option>
+                <option value="structure">Structure source</option>
+                <option value="kingdoms">Source organisms: taxon</option>
+                <option value="organisms">Source organisms: species</option>
+                <option value="substrates">Substrates</option>
+                <option value="regioselectivity">Regioselectivity</option>
+                <option value="ec">EC number</option>
+                <option value="sequence_length">Length / mass</option>
+                <option value="cbms">Carbohydrate-binding modules</option>
+                <option value="disulfides">Disulfide bonds</option>
+                <option value="binding_aromatic_types">Aromatic binding residues: type</option>
+                <option value="binding_aromatic_count">Aromatic binding residues: number</option>
+                <option value="brace_motifs">Brace histidine motifs</option>
+                <option value="aromatic">Second-sphere residues</option>
+                <option value="metals">Active-site metal</option>
+                <option value="total_charge">Net charge</option>
+                <option value="loop_regions">Loop regions</option>
+                <option value="flexibility">Flexibility range</option>
+            </select>
+            <button type="button" onclick="removeFilterField('${fieldId}')" class="remove-field-btn" title="Remove this row" aria-label="Remove this row">&times;</button>
+        </div>
+        <div class="filter-options">
+            <div class="multi-select-container" style="display: none;">
+                <div class="multi-select-checkboxes">
+                    <!-- Multi-select checkboxes will be populated here -->
+                </div>
+            </div>
+            <select class="filter-value-select" disabled hidden>
+                <option value=""></option>
+            </select>
+        </div>
+    `;
+    
+    container.appendChild(fieldDiv);
+}
+
+function removeFilterField(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.remove();
+    }
+}
+
+// The values a list criterion offers, as the page lists them in #criteriaOptions
+function criterionOptions(section) {
+    return Array.from(document.querySelectorAll(`#criteriaOptions ul[data-section="${section}"] li`))
+        .map(item => ({ value: item.dataset.value, label: item.textContent.trim() }));
+}
+
+function updateFilterOptions(selectElement) {
+    const fieldDiv = selectElement.closest('.filter-field');
+    const valueSelect = fieldDiv.querySelector('.filter-value-select');
+    const multiSelectContainer = fieldDiv.querySelector('.multi-select-container');
+    const multiSelectCheckboxes = fieldDiv.querySelector('.multi-select-checkboxes');
+    const section = selectElement.value;
+    
+    valueSelect.innerHTML = '';
+    valueSelect.disabled = true;
+    multiSelectContainer.style.display = 'none';
+    multiSelectCheckboxes.innerHTML = '';
+    multiSelectCheckboxes.className = 'multi-select-checkboxes';
+    multiSelectContainer.querySelector('.multi-select-tools')?.remove();
+    delete fieldDiv.dataset.ignoreSearch;
+
+    if (!section) {
+        return;
+    }
+    
+    const multiSelectSections = ['proteins', 'clades', 'kingdoms', 'ec', 'substrates', 'organisms', 'structure', 'regioselectivity', 'cbms', 'metals', 'disulfides', 'binding_aromatic_types', 'binding_aromatic_count', 'loop_regions'];
+    const useMultiSelect = multiSelectSections.includes(section);
+    
+    const fieldId = fieldDiv ? fieldDiv.id : '';
+
+    if (useMultiSelect) {
+        valueSelect.style.display = 'none';
+        multiSelectContainer.style.display = 'block';
+        
+        switch(section) {
+            case 'proteins':
+                // what the search bar searches, so narrowing the list finds the same proteins
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (!checkbox) return;
+                    const attribute = name => entry.getAttribute(name) || '';
+                    const names = (entry.querySelector('.protein-other-names')?.textContent || '').replace(/^;\s*/, '');
+                    const checkboxDiv = document.createElement('div');
+                    checkboxDiv.className = 'multi-select-checkbox';
+                    checkboxDiv.dataset.search = [attribute('data-protein-code'), attribute('data-other-names'),
+                        attribute('data-protein-name'), attribute('data-pdb'), attribute('data-uniprot'),
+                        attribute('data-clade'), attribute('data-organism'),
+                        parseSubstrates(attribute('data-substrates')).join(' '), attribute('data-regioselectivity'),
+                        attribute('data-second_sphere_aromatic')].join(' ');
+                    checkboxDiv.innerHTML = `
+                        <input type="checkbox" id="${fieldId}_${checkbox.value}" value="${checkbox.value}">
+                        <label for="${fieldId}_${checkbox.value}" title="${escapeHtml(names).replace(/"/g, '&quot;')}"><span class="option-main">${escapeHtml(checkbox.value)}</span>${names ? ` <span class="option-detail">${escapeHtml(names)}</span>` : ''}</label>
+                    `;
+                    multiSelectCheckboxes.appendChild(checkboxDiv);
+                });
+                break;
+                
+            case 'clades':
+            case 'structure':
+            case 'kingdoms':
+            case 'organisms':
+            case 'substrates':
+            case 'regioselectivity':
+            case 'ec':
+            case 'cbms':
+            case 'disulfides':
+            case 'binding_aromatic_types':
+            case 'binding_aromatic_count':
+            case 'metals':
+                criterionOptions(section).forEach(option => {
+                    const checkboxDiv = document.createElement('div');
+                    checkboxDiv.className = 'multi-select-checkbox';
+                    const box = document.createElement('input');
+                    box.type = 'checkbox';
+                    box.id = `${fieldId}_${option.value}`;
+                    box.value = option.value;
+                    const label = document.createElement('label');
+                    label.htmlFor = box.id;
+                    label.textContent = option.label;
+                    checkboxDiv.append(box, label);
+                    multiSelectCheckboxes.appendChild(checkboxDiv);
+                });
+                break;
+
+            case 'loop_regions':
+                const loopRegionOptions = ['L2', 'L3', 'LS', 'L8', 'LC'];
+                const loopRanges = {};
+                const loopRMSFRanges = {};
+                
+                loopRegionOptions.forEach(group => {
+                    loopRanges[group] = { min: Infinity, max: 0 };
+                    loopRMSFRanges[group] = { min: Infinity, max: 0 };
+                });
+                
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const loopRegionsAttr = entry.getAttribute('data-loop-regions');
+                    const loopRmsfAttr = entry.getAttribute('data-loop-rmsf-averages');
+                    
+                    if (loopRegionsAttr) {
+                        try {
+                            const loopDict = JSON.parse(loopRegionsAttr);
+                            
+                            loopRegionOptions.forEach(group => {
+                                if (group in loopDict) {
+                                    const ranges = loopDict[group];
+                                    if (Array.isArray(ranges) && ranges.length > 0) {
+                                        const length = getLoopLength(ranges[0]);
+                                        if (length > 0) {
+                                            loopRanges[group].min = Math.min(loopRanges[group].min, length);
+                                            loopRanges[group].max = Math.max(loopRanges[group].max, length);
+                                        }
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.warn('Error parsing loop regions:', e);
+                        }
+                    }
+                    
+                    if (loopRmsfAttr) {
+                        try {
+                            const rmsfDict = JSON.parse(loopRmsfAttr);
+                            
+                            loopRegionOptions.forEach(group => {
+                                if (group in rmsfDict) {
+                                    const avgRmsf = parseFloat(rmsfDict[group]);
+                                    if (!isNaN(avgRmsf)) {
+                                        loopRMSFRanges[group].min = Math.min(loopRMSFRanges[group].min, avgRmsf);
+                                        loopRMSFRanges[group].max = Math.max(loopRMSFRanges[group].max, avgRmsf);
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.warn('Error parsing loop RMSF averages:', e);
+                        }
+                    }
+                });
+                
+                loopRegionOptions.forEach(group => {
+                    const lengthMin = loopRanges[group].min === Infinity ? 0 : loopRanges[group].min;
+                    const lengthMax = loopRanges[group].max === 0 ? 100 : loopRanges[group].max;
+                    const flexMin = loopRMSFRanges[group].min === Infinity ? 0 : loopRMSFRanges[group].min;
+                    const flexMax = loopRMSFRanges[group].max === 0 ? 16 : loopRMSFRanges[group].max;
+                    
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'loop-region-slider-group advanced-loop-group';
+                    groupDiv.innerHTML = `
+                        <div class="loop-region-group-header">
+                            <label class="filter-checkbox-label" style="margin:0;">
+                                <input type="checkbox" class="loop-region-select" id="${fieldId}_${group}" value="${group}">
+                                ${group}
+                            </label>
+                            <label class="filter-checkbox-label loop-binding-toggle">
+                                <input type="checkbox" class="loop-binding-only" id="${fieldId}_${group}_binding">
+                                Binding surface only
+                            </label>
+                        </div>
+                        <div class="loop-region-constraint-row">
+                            <div class="loop-length-controls">
+                                <label>Length:</label>
+                                <input type="number" id="${fieldId}_${group}_length_min" min="${lengthMin}" max="${lengthMax}" step="1" value="${lengthMin}" class="loop-length-input" placeholder="${lengthMin}">
+                                <input type="number" id="${fieldId}_${group}_length_max" min="${lengthMin}" max="${lengthMax}" step="1" value="${lengthMax}" class="loop-length-input" placeholder="${lengthMax}">
+                            </div>
+                            <div class="loop-flex-controls">
+                                <label>RMSF:</label>
+                                <input type="number" id="${fieldId}_${group}_flex_min" min="${flexMin.toFixed(1)}" max="${flexMax.toFixed(1)}" step="0.1" value="${flexMin.toFixed(1)}" class="loop-flex-input" placeholder="${flexMin.toFixed(1)}">
+                                <input type="number" id="${fieldId}_${group}_flex_max" min="${flexMin.toFixed(1)}" max="${flexMax.toFixed(1)}" step="0.1" value="${flexMax.toFixed(1)}" class="loop-flex-input" placeholder="${flexMax.toFixed(1)}">
+                            </div>
+                        </div>
+                    `;
+                    multiSelectCheckboxes.appendChild(groupDiv);
+                });
+                break;
+        }
+        const items = multiSelectCheckboxes.querySelectorAll(':scope > .multi-select-checkbox');
+        items.forEach((item, index) => {
+            item.dataset.index = index;
+            if (!item.dataset.search) item.dataset.search = item.textContent.toLowerCase();
+            if (section === 'proteins') return;
+            // how many proteins the option alone selects
+            const count = getProteinsForFilter({ section: section, values: [item.querySelector('input').value], additionalData: {} }).size;
+            item.querySelector('label').insertAdjacentHTML('beforeend', ` <span class="filter-option-count">(${count})</span>`);
+        });
+        if (!items.length) multiSelectCheckboxes.classList.add('plain');
+        multiSelectCheckboxes.classList.toggle('one-column', section === 'proteins');
+        // long names (species) get wider columns instead of being cut
+        multiSelectCheckboxes.classList.toggle('wide', section !== 'proteins' && Array.from(items).some(item => item.textContent.trim().length > 26));
+        if (section === 'proteins' || items.length > 12) addListTools(fieldDiv, section);
+    } else {
+        multiSelectCheckboxes.classList.add('plain');
+        
+        switch(section) {
+            case 'sequence_length':
+            case 'total_charge': {
+                // a range with its own switches: catalytic domain or whole structure, residues or kDa
+                valueSelect.style.display = 'none';
+                multiSelectContainer.style.display = 'block';
+                const isLength = section === 'sequence_length';
+                const rangeBox = document.createElement('div');
+                rangeBox.className = 'range-controls';
+                rangeBox.dataset.kind = isLength ? 'length' : 'charge';
+                rangeBox.dataset.scope = 'cat';
+                rangeBox.dataset.unit = 'residues';
+                rangeBox.innerHTML = `
+                    <div class="range-switches">
+                        <span class="ov-segmented" data-key="scope">
+                            <button type="button" data-value="cat" class="active">Catalytic domain</button>
+                            <button type="button" data-value="full">Whole structure</button>
+                        </span>
+                        ${isLength ? `<span class="ov-segmented" data-key="unit">
+                            <button type="button" data-value="residues" class="active">Residues</button>
+                            <button type="button" data-value="kda">Mass (kDa)</button>
+                        </span>` : ''}
+                    </div>
+                    <div class="range-slider-host"></div>
+                `;
+                rangeBox.querySelectorAll('.ov-segmented button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const group = button.parentElement;
+                        group.querySelectorAll('button').forEach(other => other.classList.toggle('active', other === button));
+                        rangeBox.dataset[group.dataset.key] = button.dataset.value;
+                        drawRangeSlider(fieldId);
+                    });
+                });
+                multiSelectCheckboxes.appendChild(rangeBox);
+                drawRangeSlider(fieldId);
+                break;
+            }
+
+            case 'aromatic':
+                valueSelect.style.display = 'none';
+                multiSelectContainer.style.display = 'block';
+                multiSelectCheckboxes.innerHTML = '';
+                
+                // Create multi-level dropdown structure
+                const aromaticDiv = document.createElement('div');
+                aromaticDiv.className = 'aromatic-multi-select';
+                
+                // Axial Position category
+                const axialDiv = document.createElement('div');
+                axialDiv.className = 'aromatic-category';
+                axialDiv.innerHTML = `
+                    <div class="option-heading">
+                        Axial Position (to Cu)
+                    </div>
+                    <div class="option-grid">
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_axial_PHE" value="PHE" data-category="axial">
+                            PHE (Phenylalanine)
+                        </label>
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_axial_TYR" value="TYR" data-category="axial">
+                            TYR (Tyrosine)
+                        </label>
+                    </div>
+                `;
+                aromaticDiv.appendChild(axialDiv);
+
+                // Motif, motif with spacing and the shielding residue: the values
+                // the catalogue has (json_script lists of [value, count])
+                const readOptions = id => {
+                    try { return JSON.parse(document.getElementById(id).textContent); } catch (e) { return []; }
+                };
+                [
+                    ['motif', 'Second-Sphere Motif', 'motif-options'],
+                    ['motif_full', 'Motif with Spacing', 'motif-full-options'],
+                    ['distal_axial', 'Shielding Residue', 'distal-axial-options'],
+                ].forEach(([category, heading, optionsId]) => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'aromatic-category';
+                    const title = document.createElement('div');
+                    title.className = 'option-heading';
+                    title.textContent = heading;
+                    const list = document.createElement('div');
+                    list.className = 'option-grid';
+                    readOptions(optionsId).forEach(([value, count]) => {
+                        const label = document.createElement('label');
+                        label.className = 'filter-checkbox-label';
+                        label.style.margin = '0';
+                        const box = document.createElement('input');
+                        box.type = 'checkbox';
+                        box.value = value;
+                        box.dataset.category = category;
+                        const countNode = document.createElement('span');
+                        countNode.className = 'filter-option-count';
+                        countNode.textContent = ` (${count})`;
+                        label.append(box, ` ${value}`, countNode);
+                        list.appendChild(label);
+                    });
+                    categoryDiv.append(title, list);
+                    aromaticDiv.appendChild(categoryDiv);
+                });
+                
+                // Hydrogen Bond Interactions category
+                const hbondDiv = document.createElement('div');
+                hbondDiv.className = 'aromatic-category';
+                hbondDiv.innerHTML = `
+                    <div class="option-heading">
+                        Hydrogen Bond Interactions
+                    </div>
+                    <div class="option-grid">
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_hbond_ASN" value="ASN" data-category="hbond">
+                            ASN (Asparagine)
+                        </label>
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_hbond_ASP" value="ASP" data-category="hbond">
+                            ASP (Aspartic acid)
+                        </label>
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_hbond_GLN" value="GLN" data-category="hbond">
+                            GLN (Glutamine)
+                        </label>
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_hbond_GLU" value="GLU" data-category="hbond">
+                            GLU (Glutamic acid)
+                        </label>
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_hbond_SER" value="SER" data-category="hbond">
+                            SER (Serine)
+                        </label>
+                    </div>
+                `;
+                aromaticDiv.appendChild(hbondDiv);
+                
+                // Pi-Pi Stacking Interactions category
+                const piStackingDiv = document.createElement('div');
+                piStackingDiv.className = 'aromatic-category';
+                piStackingDiv.innerHTML = `
+                    <div class="option-heading">
+                        Pi-Pi Stacking Interactions
+                    </div>
+                    <div class="option-grid">
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_pi_HIS" value="HIS" data-category="pi_stacking">
+                            HIS (Histidine)
+                        </label>
+                    </div>
+                `;
+                aromaticDiv.appendChild(piStackingDiv);
+                
+                // Cation-Pi Interactions category
+                const cationPiDiv = document.createElement('div');
+                cationPiDiv.className = 'aromatic-category';
+                cationPiDiv.innerHTML = `
+                    <div class="option-heading">
+                        Cation-Pi Interactions
+                    </div>
+                    <div class="option-grid">
+                        <label class="filter-checkbox-label" style="margin: 0;">
+                            <input type="checkbox" id="${fieldId}_cation_ARG" value="ARG" data-category="cation_pi">
+                            ARG (Arginine)
+                        </label>
+                    </div>
+                `;
+                aromaticDiv.appendChild(cationPiDiv);
+                
+                multiSelectCheckboxes.appendChild(aromaticDiv);
+                break;
+
+            case 'brace_motifs': {
+                valueSelect.style.display = 'none';
+                multiSelectContainer.style.display = 'block';
+                multiSelectCheckboxes.innerHTML = '';
+                // the motifs the catalogue has after each His (json_script lists of [motif, count]);
+                // the aromatic-multi-select class lets the search read them like the second sphere's
+                const braceDiv = document.createElement('div');
+                braceDiv.className = 'aromatic-multi-select';
+                [
+                    ['n_his_motif', 'After the N-Terminal His (N-His)', 'n-his-motif-options'],
+                    ['internal_his_motif', 'After the Internal His (Internal-His)', 'internal-his-motif-options'],
+                ].forEach(([category, heading, optionsId]) => {
+                    let options = [];
+                    try { options = JSON.parse(document.getElementById(optionsId).textContent); } catch (e) { /* none */ }
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'aromatic-category';
+                    const title = document.createElement('div');
+                    title.className = 'option-heading';
+                    title.textContent = heading;
+                    const list = document.createElement('div');
+                    list.className = 'option-grid';
+                    options.forEach(([value, count]) => {
+                        const label = document.createElement('label');
+                        label.className = 'filter-checkbox-label';
+                        label.style.margin = '0';
+                        const box = document.createElement('input');
+                        box.type = 'checkbox';
+                        box.value = value;
+                        box.dataset.category = category;
+                        const countNode = document.createElement('span');
+                        countNode.className = 'filter-option-count';
+                        countNode.textContent = ` (${count})`;
+                        label.append(box, ` ${value}`, countNode);
+                        list.appendChild(label);
+                    });
+                    categoryDiv.append(title, list);
+                    braceDiv.appendChild(categoryDiv);
+                });
+                multiSelectCheckboxes.appendChild(braceDiv);
+                break;
+            }
+
+            case 'flexibility':
+                valueSelect.style.display = 'none';
+                multiSelectContainer.style.display = 'block';
+                
+                multiSelectCheckboxes.innerHTML = '';
+
+                const flexibilityDiv = document.createElement('div');
+                flexibilityDiv.className = 'range-controls';
+                
+                flexibilityDiv.innerHTML = `
+                    <div class="option-heading">Flexibility range (RMSF)</div>
+                    <div class="flexibility-display" style="display:flex; justify-content:space-between; font-size:12px;">
+                        <span>Min: <strong id="${fieldId}_flex_min_value">0.0</strong></span>
+                        <span>Max: <strong id="${fieldId}_flex_max_value">16.0</strong></span>
+                    </div>
+                    <div class="dual-range-slider-wrapper">
+                        <div id="${fieldId}_flex_track" class="dual-range-slider-track"></div>
+                        <input type="range" 
+                            id="${fieldId}_flex_min" 
+                            min="0" max="16" step="0.1" value="0" 
+                            oninput="updateFlexibilityRange('${fieldId}', 'min')" 
+                            style="z-index: 2;">
+                        <input type="range" 
+                            id="${fieldId}_flex_max" 
+                            min="0" max="16" step="0.1" value="16" 
+                            oninput="updateFlexibilityRange('${fieldId}', 'max')" 
+                            style="z-index: 2;">
+                    </div>
+                `;
+                
+                multiSelectCheckboxes.appendChild(flexibilityDiv);
+                
+                setTimeout(() => updateFlexibilityTrack(fieldId), 0);
+                
+                break;
+        }
+    }
+}
+
+function updateFlexibilityRange(fieldId, type) {
+    const minSlider = document.getElementById(`${fieldId}_flex_min`);
+    const maxSlider = document.getElementById(`${fieldId}_flex_max`);
+    const minValue = document.getElementById(`${fieldId}_flex_min_value`);
+    const maxValue = document.getElementById(`${fieldId}_flex_max_value`);
+    const step=0.1;
+        
+    if (!minSlider || !maxSlider || !minValue || !maxValue) return;
+        
+    let currentMin = parseFloat(minSlider.value);
+    let currentMax = parseFloat(maxSlider.value);
+
+    if (type === 'min') {
+        if (currentMin >= currentMax) {
+            minSlider.value = (currentMax - step).toFixed(1);
+            currentMin = parseFloat(minSlider.value);
+        }
+        minValue.textContent = currentMin.toFixed(1);
+    } else if (type === 'max') {
+        if (currentMax <= currentMin) {
+            maxSlider.value = (currentMin + step).toFixed(1);
+            currentMax = parseFloat(maxSlider.value);
+        }
+        maxValue.textContent = currentMax.toFixed(1);
+    }
+        
+    updateFlexibilityTrack(fieldId);
+}
+
+function updateFlexibilityTrack(fieldId) {
+    const minSlider = document.getElementById(`${fieldId}_flex_min`);
+    const maxSlider = document.getElementById(`${fieldId}_flex_max`);
+    const track = document.getElementById(`${fieldId}_flex_track`);
+        
+    if (!minSlider || !maxSlider || !track) return;
+        
+    const min = parseFloat(minSlider.min);
+    const max = parseFloat(minSlider.max);
+    const currentMin = parseFloat(minSlider.value);
+    const currentMax = parseFloat(maxSlider.value);
+        
+    const percentMin = ((currentMin - min) / (max - min)) * 100;
+    const percentMax = ((currentMax - min) / (max - min)) * 100;
+        
+    track.style.left = percentMin + '%';
+    track.style.width = (percentMax - percentMin) + '%';
+}
+
+// The range of a Length / mass or Net charge row, drawn again when one of its switches changes
+function drawRangeSlider(fieldId) {
+    const box = document.querySelector(`#${fieldId} .range-controls`);
+    if (!box) return;
+    const isCharge = box.dataset.kind === 'charge';
+    const catalytic = box.dataset.scope !== 'full';
+    const kda = !isCharge && box.dataset.unit === 'kda';
+    const range = (isCharge ? (catalytic ? window.catChargeRange : window.totalChargeRange)
+        : kda ? (catalytic ? window.catMassRange : window.fullMassRange)
+        : (catalytic ? window.catLengthRange : window.fullLengthRange)) || { min: 0, max: 100 };
+    const step = (isCharge || kda) ? 0.1 : 1;
+    const digits = step < 1 ? 1 : 0;
+    // rounded outwards, so the smallest and the largest protein stay inside
+    const min = (Math.floor(range.min / step + 1e-6) * step).toFixed(digits);
+    const max = (Math.ceil(range.max / step - 1e-6) * step).toFixed(digits);
+    const unit = isCharge ? 'e' : kda ? 'kDa' : 'residues';
+    box.querySelector('.range-slider-host').innerHTML = `
+        <div class="range-display">
+            <input type="number" class="range-number" id="${fieldId}_range_min_input" min="${min}" max="${max}" step="${step}" value="${min}"
+                   aria-label="From" onchange="updateRangeSlider('${fieldId}', 'min', true)">
+            <span>to</span>
+            <input type="number" class="range-number" id="${fieldId}_range_max_input" min="${min}" max="${max}" step="${step}" value="${max}"
+                   aria-label="To" onchange="updateRangeSlider('${fieldId}', 'max', true)">
+            <span>${unit}</span>
+        </div>
+        <div class="dual-range-slider-wrapper">
+            <div id="${fieldId}_range_track" class="dual-range-slider-track"></div>
+            <input type="range" id="${fieldId}_range_min" min="${min}" max="${max}" step="${step}" value="${min}" oninput="updateRangeSlider('${fieldId}', 'min')">
+            <input type="range" id="${fieldId}_range_max" min="${min}" max="${max}" step="${step}" value="${max}" oninput="updateRangeSlider('${fieldId}', 'max')">
+        </div>
+    `;
+    updateRangeSlider(fieldId, 'min');
+}
+
+function updateRangeSlider(fieldId, type, fromInput = false) {
+    const part = suffix => document.getElementById(`${fieldId}_range_${suffix}`);
+    const minSlider = part('min'), maxSlider = part('max');
+    const minInput = part('min_input'), maxInput = part('max_input'), track = part('track');
+    if (!minSlider || !maxSlider || !minInput || !maxInput || !track) return;
+    const step = parseFloat(minSlider.step) || 1;
+    const digits = step < 1 ? 1 : 0;
+    const low = parseFloat(minSlider.min), high = parseFloat(minSlider.max);
+
+    if (fromInput) {
+        // a typed value: kept inside the range and on the right side of the other one
+        let value = parseFloat((type === 'min' ? minInput : maxInput).value);
+        if (isNaN(value)) value = type === 'min' ? low : high;
+        value = Math.min(high, Math.max(low, value));
+        if (type === 'min') minSlider.value = Math.min(value, parseFloat(maxSlider.value));
+        else maxSlider.value = Math.max(value, parseFloat(minSlider.value));
+    } else if (parseFloat(minSlider.value) >= parseFloat(maxSlider.value)) {
+        // dragged thumbs stay one step apart, so neither ends up under the other
+        if (type === 'min') minSlider.value = parseFloat(maxSlider.value) - step;
+        else maxSlider.value = parseFloat(minSlider.value) + step;
+    }
+
+    const currentMin = parseFloat(minSlider.value), currentMax = parseFloat(maxSlider.value);
+    minInput.value = currentMin.toFixed(digits);
+    maxInput.value = currentMax.toFixed(digits);
+    const span = (high - low) || 1;
+    track.style.left = ((currentMin - low) / span * 100) + '%';
+    track.style.width = ((currentMax - currentMin) / span * 100) + '%';
+}
+
+// A box that narrows a long option list (the Proteins row, the species), with "Tick all shown"
+function addListTools(fieldDiv, section) {
+    const container = fieldDiv.querySelector('.multi-select-container');
+    const tools = document.createElement('div');
+    tools.className = 'multi-select-tools';
+    const placeholder = section === 'proteins' ? 'Narrow the list: name, organism, accession, PDB code…' : 'Narrow the list…';
+    tools.innerHTML = `
+        <input type="search" class="multi-select-filter" autocomplete="off" spellcheck="false" aria-label="Narrow the list" placeholder="${placeholder}">
+        <button type="button" class="list-tool-btn" data-action="all">Tick all shown</button>
+        <button type="button" class="list-tool-btn" data-action="none">Untick all</button>
+        <div class="multi-select-note"></div>
+    `;
+    container.insertBefore(tools, container.firstChild);
+    const list = fieldDiv.querySelector('.multi-select-checkboxes');
+    const boxes = () => Array.from(list.querySelectorAll(':scope > .multi-select-checkbox'));
+    tools.querySelector('.multi-select-filter').addEventListener('input', () => refreshListFilter(fieldDiv));
+    tools.addEventListener('click', event => {
+        const action = event.target.dataset ? event.target.dataset.action : null;
+        if (!action) return;
+        if (action === 'all') boxes().forEach(item => { if (!item.hidden) item.querySelector('input').checked = true; });
+        if (action === 'none') boxes().forEach(item => { item.querySelector('input').checked = false; });
+        if (action === 'search') fieldDiv.dataset.ignoreSearch = fieldDiv.dataset.ignoreSearch === '1' ? '' : '1';
+        refreshListFilter(fieldDiv);
+    });
+    list.addEventListener('change', () => refreshListFilter(fieldDiv));
+    refreshListFilter(fieldDiv);
+}
+
+// Shows the options matching the row's box; a Proteins row also follows the search bar above the
+// tree: its matches come first (best first for a sequence search) and, unless switched off, only
+// they are listed. Ticked options always stay in view.
+function refreshListFilter(fieldDiv) {
+    const tools = fieldDiv.querySelector('.multi-select-tools');
+    if (!tools) return;
+    const list = fieldDiv.querySelector('.multi-select-checkboxes');
+    const term = tools.querySelector('.multi-select-filter').value.toLowerCase().trim();
+    const isProteins = fieldDiv.querySelector('.filter-section-select').value === 'proteins';
+    const hits = isProteins && window.lpmoSearchHits ? window.lpmoSearchHits.codes : null;
+    const onlyHits = !!hits && fieldDiv.dataset.ignoreSearch !== '1';
+    const rank = new Map((hits || []).map((code, index) => [code, index]));
+    const items = Array.from(list.querySelectorAll(':scope > .multi-select-checkbox'));
+    const place = item => {
+        const value = item.querySelector('input').value;
+        return rank.has(value) ? rank.get(value) : hits.length + Number(item.dataset.index);
+    };
+    items.sort((a, b) => hits ? place(a) - place(b) : Number(a.dataset.index) - Number(b.dataset.index));
+
+    let shown = 0, ticked = 0;
+    items.forEach(item => {
+        const box = item.querySelector('input');
+        const isHit = rank.has(box.value);
+        const visible = box.checked || ((!term || item.dataset.search.includes(term)) && (!onlyHits || isHit));
+        item.hidden = !visible;
+        item.classList.toggle('search-hit', isHit);
+        if (visible) shown++;
+        if (box.checked) ticked++;
+        list.appendChild(item);
+    });
+
+    const parts = [];
+    if (hits) {
+        parts.push(onlyHits
+            ? `Only the ${hits.length} protein(s) found by the search bar. <button type="button" class="list-link-btn" data-action="search">Show all proteins</button>`
+            : `The ${hits.length} protein(s) found by the search bar come first. <button type="button" class="list-link-btn" data-action="search">Show only them</button>`);
+    }
+    parts.push(`${shown} of ${items.length} shown${ticked ? `, ${ticked} ticked` : ''}`);
+    tools.querySelector('.multi-select-note').innerHTML = parts.join(' &middot; ');
+}
+
+function applyAdvancedSearch() {
+    const fields = document.querySelectorAll('.filter-field');
+    const results = [];
+    
+    fields.forEach(field => {
+        const sectionSelect = field.querySelector('.filter-section-select');
+        const modeSelect = field.querySelector('.search-mode-select');
+        const valueSelect = field.querySelector('.filter-value-select');
+        const multiSelectCheckboxes = field.querySelectorAll('.multi-select-checkbox input[type="checkbox"]:checked');
+        
+        if (sectionSelect.value) {
+            let values = [];
+            let additionalData = {};
+
+            if (sectionSelect.value === 'sequence_length' || sectionSelect.value === 'total_charge') {
+                const rangeBox = field.querySelector('.range-controls');
+                const minSlider = document.getElementById(`${field.id}_range_min`);
+                const maxSlider = document.getElementById(`${field.id}_range_max`);
+
+                if (rangeBox && minSlider && maxSlider) {
+                    const minValue = parseFloat(minSlider.value);
+                    const maxValue = parseFloat(maxSlider.value);
+
+                    values.push(`${minValue}-${maxValue}`);
+                    additionalData[sectionSelect.value] = {
+                        min: minValue,
+                        max: maxValue,
+                        scope: rangeBox.dataset.scope,
+                        unit: rangeBox.dataset.unit
+                    };
+                }
+            } else if (sectionSelect.value === 'loop_regions') {
+                const fieldId = field.id;
+                const loopGroups = field.querySelectorAll('.loop-region-slider-group');
+                loopGroups.forEach(groupDiv => {
+                    const checkbox = groupDiv.querySelector('.loop-region-select');
+                    if (checkbox && checkbox.checked) {
+                        const groupName = checkbox.value;
+                        values.push(groupName);
+
+                        const lengthMinInput = groupDiv.querySelector(`#${fieldId}_${groupName}_length_min`);
+                        const lengthMaxInput = groupDiv.querySelector(`#${fieldId}_${groupName}_length_max`);
+                        const flexMinInput = groupDiv.querySelector(`#${fieldId}_${groupName}_flex_min`);
+                        const flexMaxInput = groupDiv.querySelector(`#${fieldId}_${groupName}_flex_max`);
+                        const bindingOnlyCheckbox = groupDiv.querySelector(`#${fieldId}_${groupName}_binding`);
+
+                        // A bound left at its pre-filled value (the data range, rounded) is no
+                        // constraint -- otherwise loops without RMSF, or at the rounded edge, drop out.
+                        const changed = input => input && input.value !== '' && input.value !== input.defaultValue;
+                        additionalData[groupName] = {
+                            lengthMin: changed(lengthMinInput) ? parseInt(lengthMinInput.value, 10) : null,
+                            lengthMax: changed(lengthMaxInput) ? parseInt(lengthMaxInput.value, 10) : null,
+                            flexMin: changed(flexMinInput) ? parseFloat(flexMinInput.value) : null,
+                            flexMax: changed(flexMaxInput) ? parseFloat(flexMaxInput.value) : null,
+                            bindingOnly: bindingOnlyCheckbox ? bindingOnlyCheckbox.checked : false
+                        };
+                    }
+                });
+            } else if (sectionSelect.value === 'aromatic' || sectionSelect.value === 'brace_motifs') {
+                const aromaticCheckboxes = field.querySelectorAll('.aromatic-multi-select input[type="checkbox"]:checked');
+                if (aromaticCheckboxes.length > 0) {
+                    aromaticCheckboxes.forEach(cb => {
+                        const category = cb.getAttribute('data-category');
+                        const residue = cb.value;
+                        values.push(residue);
+                        if (!additionalData.categories) {
+                            additionalData.categories = {};
+                        }
+                        if (!additionalData.categories[category]) {
+                            additionalData.categories[category] = [];
+                        }
+                        additionalData.categories[category].push(residue);
+                    });
+                }
+            } else if (sectionSelect.value === 'flexibility') {
+                const minSlider = field.querySelector('input[id$="_flex_min"]');
+                const maxSlider = field.querySelector('input[id$="_flex_max"]');
+                
+                if (minSlider && maxSlider) {
+                    const minValue = parseFloat(minSlider.value);
+                    const maxValue = parseFloat(maxSlider.value);
+                    
+                    if (minValue > 0 || maxValue < 16) {
+                        values.push(`${minValue}-${maxValue}`);
+                        additionalData.flexibility = {
+                            min: minValue,
+                            max: maxValue
+                        };
+                    }
+                }
+            } else if (multiSelectCheckboxes.length > 0) {
+                values = Array.from(multiSelectCheckboxes).map(cb => cb.value);
+            } else if (valueSelect.value) {
+                values = [valueSelect.value];
+            }
+            
+            if (values.length > 0) {
+                results.push({
+                    section: sectionSelect.value,
+                    mode: modeSelect.value,
+                    values: values,
+                    additionalData: additionalData
+                });
+            }
+        }
+    });
+    
+    if (results.length === 0) {
+        const summaryDiv = document.getElementById('filterSummary');
+        summaryDiv.innerHTML = 'Choose a criterion and at least one of its values first.';
+        summaryDiv.style.display = 'block';
+        return;
+    }
+    
+    applyIndividualFilters(results);
+}
+
+function applyIndividualFilters(filters) {
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => {
+            cb.checked = false;
+        });
+    });
+    
+    let finalProteins = new Set();
+    let isFirstFilter = true;
+    
+    filters.forEach(filter => {
+        const filterProteins = getProteinsForFilter(filter);
+        
+        if (isFirstFilter) {
+            finalProteins = filterProteins;
+            isFirstFilter = false;
+        } else {
+            switch(filter.mode) {
+                case 'AND':
+                    finalProteins = new Set([...finalProteins].filter(x => filterProteins.has(x)));
+                    break;
+                case 'OR':
+                    filterProteins.forEach(protein => finalProteins.add(protein));
+                    break;
+                case 'NOT':
+                    filterProteins.forEach(protein => finalProteins.delete(protein));
+                    break;
+            }
+        }
+    });
+    
+    // the matches already in a group are not selected again
+    const inGroups = [...finalProteins].filter(isGroupedProtein);
+    inGroups.forEach(code => finalProteins.delete(code));
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => {
+            cb.checked = finalProteins.has(cb.value);
+        });
+    });
+    
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+        updateAdvancedSearchSummary(filters, finalProteins.size, inGroups.length);
+    }, 100);
+}
+
+function getProteinsForFilter(filter) {
+    const proteins = new Set();
+    
+    filter.values.forEach(value => {
+        switch(filter.section) {
+            case 'proteins':
+                proteins.add(value);
+                break;
+                
+            case 'clades':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const cladeData = (entry.getAttribute('data-clade') || '').toLowerCase().trim();
+                    if (cladeData === value.toLowerCase().trim()) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+                
+            case 'ec':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const ecData = (entry.getAttribute('data-ec') || '').toLowerCase();
+                    const entryEcs = ecData.split(/[;,]/).map(e => e.trim()).filter(Boolean);
+                    if (entryEcs.includes(value.toLowerCase().trim())) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+
+            case 'substrates':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const substratesData = entry.getAttribute('data-substrates') || '';
+                    const substrateList = parseSubstrates(substratesData);
+                    if (substrateList.includes(value.toLowerCase().trim())) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+
+            case 'organisms':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const organismData = (entry.getAttribute('data-organism') || '').toLowerCase().trim();
+                    if (organismData === value.toLowerCase().trim()) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+                
+            case 'kingdoms':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const kingdomData = (entry.getAttribute('data-kingdom') || '').toLowerCase().trim();
+                    if (kingdomData === value.toLowerCase().trim()) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+
+            case 'cbms':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const cbmData = (entry.getAttribute('data-associated-cbms') || '').toLowerCase().trim();
+                    const cbms = cbmData && cbmData !== 'nan' && cbmData !== 'none'
+                        ? cbmData.split(',').map(c => c.trim()).filter(Boolean) : [];
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && (value === '__none__' ? !cbms.length : cbms.includes(value.toLowerCase().trim()))) {
+                        proteins.add(checkbox.value);
+                    }
+                });
+                break;
+            case 'metals':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const metalData = (entry.getAttribute('data-metal') || '').toLowerCase().trim();
+                    const metal = metalData && metalData !== 'nan' && metalData !== 'none' ? metalData : '';
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && (value === '__none__' ? !metal : metal === value.toLowerCase().trim())) {
+                        proteins.add(checkbox.value);
+                    }
+                });
+                break;
+            case 'binding_aromatic_types':
+                // the proteins with that aromatic on the binding surface ('-' = none at all)
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const types = (entry.getAttribute('data-binding-aromatics') || '').trim();
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && types !== '' && (value === '-' ? types === '-' : types.includes(value))) proteins.add(checkbox.value);
+                });
+                break;
+            case 'binding_aromatic_count':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const count = (entry.getAttribute('data-binding-aromatic-count') || '').trim();
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && count !== '' && count === String(value).trim()) proteins.add(checkbox.value);
+                });
+                break;
+            case 'disulfides':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const bonds = (entry.getAttribute('data-disulfides') || '').trim();
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && bonds !== '' && bonds === String(value).trim()) proteins.add(checkbox.value);
+                });
+                break;
+            case 'structure':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const structureData = (entry.getAttribute('data-structure') || '').toLowerCase().trim();
+                    if (structureData === value.toLowerCase().trim()) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+                
+            case 'regioselectivity':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const regioselectivityData = entry.getAttribute('data-regioselectivity') || '';
+                    const proteinRegioValues = parseRegioselectivity(regioselectivityData);
+                    if (proteinRegioValues.length > 0 && proteinRegioValues.includes(value)) {
+                        const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                        if (checkbox) proteins.add(checkbox.value);
+                    }
+                });
+                break;
+
+            case 'aromatic':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (!checkbox) return;
+                    
+                    let matches = false;
+                    const motifAttributes = { motif: 'data-motif', motif_full: 'data-motif-full', distal_axial: 'data-distal-axial' };
+                    const checkedPairs = filter.additionalData && filter.additionalData.categories
+                        ? Object.entries(filter.additionalData.categories).flatMap(([cat, list]) => list.map(v => [cat, v]))
+                        : filter.values.map(v => [null, v]);
+
+                    checkedPairs.forEach(([category, value]) => {
+                        const residueUpper = value.toUpperCase().trim();
+
+                        if (motifAttributes[category]) {
+                            if ((entry.getAttribute(motifAttributes[category]) || '') === value) {
+                                matches = true;
+                            }
+                        } else if (category === 'axial') {
+                            const axialData = entry.getAttribute('data-axial-residue') || '';
+                            if (axialData.includes(residueUpper)) {
+                                matches = true;
+                            }
+                        } else if (category === 'hbond') {
+                            const hbondData = entry.getAttribute('data-hbond-residues') || '';
+                            const hbondList = hbondData.split(',').map(r => r.trim()).filter(r => r);
+                            if (hbondList.includes(residueUpper)) {
+                                matches = true;
+                            }
+                        } else if (category === 'pi_stacking') {
+                            const piStackingData = entry.getAttribute('data-pi-stacking-residues') || '';
+                            const piStackingList = piStackingData.split(',').map(r => r.trim()).filter(r => r);
+                            if (piStackingList.includes(residueUpper)) {
+                                matches = true;
+                            }
+                        } else if (category === 'cation_pi') {
+                            const cationPiData = entry.getAttribute('data-cation-pi-residues') || '';
+                            const cationPiList = cationPiData.split(',').map(r => r.trim()).filter(r => r);
+                            if (cationPiList.includes(residueUpper)) {
+                                matches = true;
+                            }
+                        } else {
+                            const axialData = entry.getAttribute('data-axial-residue') || '';
+                            const hbondData = entry.getAttribute('data-hbond-residues') || '';
+                            const piStackingData = entry.getAttribute('data-pi-stacking-residues') || '';
+                            const cationPiData = entry.getAttribute('data-cation-pi-residues') || '';
+                            
+                            if (axialData.includes(residueUpper) ||
+                                hbondData.split(',').map(r => r.trim()).includes(residueUpper) ||
+                                piStackingData.split(',').map(r => r.trim()).includes(residueUpper) ||
+                                cationPiData.split(',').map(r => r.trim()).includes(residueUpper)) {
+                                matches = true;
+                            }
+                        }
+                    });
+                    
+                    if (matches) {
+                        proteins.add(checkbox.value);
+                    }
+                });
+                break;
+                
+            case 'brace_motifs': {
+                // a protein matches when the motif after either His is one of those ticked
+                const attributes = { n_his_motif: 'data-n-his-motif', internal_his_motif: 'data-internal-his-motif' };
+                const categories = (filter.additionalData && filter.additionalData.categories) || {};
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (checkbox && Object.entries(categories).some(([category, motifs]) =>
+                            attributes[category] && motifs.includes(entry.getAttribute(attributes[category]) || ''))) {
+                        proteins.add(checkbox.value);
+                    }
+                });
+                break;
+            }
+
+            case 'sequence_length':
+            case 'total_charge': {
+                // the row's own switches say which value of the protein is meant
+                const range = filter.additionalData && filter.additionalData[filter.section];
+                if (!range) break;
+                const catalytic = range.scope !== 'full';
+                const attribute = filter.section === 'total_charge'
+                    ? (catalytic ? 'data-cat-charge' : 'data-total-charge')
+                    : range.unit === 'kda' ? (catalytic ? 'data-cat-mass' : 'data-sequence-mass')
+                    : (catalytic ? 'data-cat-length' : 'data-sequence-length');
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (!checkbox) return;
+                    const number = parseFloat(entry.getAttribute(attribute));
+                    if (!isNaN(number) && number >= range.min - 1e-9 && number <= range.max + 1e-9) {
+                        proteins.add(checkbox.value);
+                    }
+                });
+                break;
+            }
+
+            case 'loop_regions':
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (!checkbox) return;
+
+                    const proteinCode = checkbox.value;
+                    const loopRegionsAttr = entry.getAttribute('data-loop-regions');
+                    if (!loopRegionsAttr) return;
+
+                    try {
+                        const loopDict = JSON.parse(loopRegionsAttr);
+                        const bindingDict = JSON.parse(entry.getAttribute('data-binding-surface') || '{}');
+                        const rmsfDict = JSON.parse(entry.getAttribute('data-loop-rmsf-averages') || '{}');
+                        const overlapDict = JSON.parse(entry.getAttribute('data-loop-binding-overlap') || '{}');
+                        const overlapRmsfDict = JSON.parse(entry.getAttribute('data-loop-binding-rmsf') || '{}');
+
+                        const matches = filter.values.some(group => {
+                            const constraints = filter.additionalData && filter.additionalData[group] ? filter.additionalData[group] : {};
+                            const lengthMin = typeof constraints.lengthMin === 'number' ? constraints.lengthMin : null;
+                            const lengthMax = typeof constraints.lengthMax === 'number' ? constraints.lengthMax : null;
+                            const flexMin = typeof constraints.flexMin === 'number' ? constraints.flexMin : null;
+                            const flexMax = typeof constraints.flexMax === 'number' ? constraints.flexMax : null;
+                            const bindingOnly = !!constraints.bindingOnly;
+
+                            if (bindingOnly) {
+                                if (!(group in overlapDict)) return false;
+                                const overlapRange = overlapDict[group];
+                                const overlapLength = getLoopLength(overlapRange);
+
+                                if (lengthMin !== null && overlapLength < lengthMin) return false;
+                                if (lengthMax !== null && overlapLength > lengthMax) return false;
+
+                                if (flexMin !== null || flexMax !== null) {
+                                    if (!(group in overlapRmsfDict)) return false;
+                                    const overlapRmsf = parseFloat(overlapRmsfDict[group]);
+                                    if (isNaN(overlapRmsf)) return false;
+                                    if (flexMin !== null && overlapRmsf < flexMin) return false;
+                                    if (flexMax !== null && overlapRmsf > flexMax) return false;
+                                }
+
+                                return true;
+                            } else {
+                                const ranges = loopDict[group];
+                                if (!Array.isArray(ranges) || ranges.length === 0) return false;
+
+                                const loopLength = getLoopLength(ranges[0]);
+                                if (lengthMin !== null && loopLength < lengthMin) return false;
+                                if (lengthMax !== null && loopLength > lengthMax) return false;
+
+                                if (flexMin !== null || flexMax !== null) {
+                                    if (!(group in rmsfDict)) return false;
+                                    const avgRmsf = parseFloat(rmsfDict[group]);
+
+                                    if (isNaN(avgRmsf)) return false;
+                                    if (flexMin !== null && avgRmsf < flexMin) return false;
+                                    if (flexMax !== null && avgRmsf > flexMax) return false;
+                                }
+
+                                return true;
+                            }
+                        });
+
+                        if (matches) {
+                            proteins.add(proteinCode);
+                        }
+                    } catch (e) {
+                        console.warn(`Error processing loop regions for ${proteinCode}:`, e);
+                    }
+                });
+                break;
+                
+            case 'flexibility':
+                let minFlex, maxFlex;
+                
+                if (filter.additionalData && filter.additionalData.flexibility) {
+                    minFlex = filter.additionalData.flexibility.min;
+                    maxFlex = filter.additionalData.flexibility.max;
+                } else {
+                    const [minStr, maxStr] = value.split('-');
+                    minFlex = parseFloat(minStr);
+                    maxFlex = parseFloat(maxStr);
+                }
+                
+                document.querySelectorAll('.protein-entry2').forEach(entry => {
+                    const checkbox = entry.querySelector('input[name="filter_protein_ids"]');
+                    if (!checkbox) return;
+                    
+                    const proteinCode = checkbox.value;
+                    const flexMinAttr = entry.getAttribute('data-flex-min');
+                    const flexMaxAttr = entry.getAttribute('data-flex-max');
+                    
+                    if (!flexMinAttr || !flexMaxAttr) return;
+                    
+                    const min_rmsf = parseFloat(flexMinAttr);
+                    const max_rmsf = parseFloat(flexMaxAttr);
+                        
+                    if (!isNaN(min_rmsf) && !isNaN(max_rmsf)) {
+                        if (min_rmsf >= minFlex && max_rmsf <= maxFlex) {
+                            proteins.add(proteinCode);
+                        }
+                    }
+                });
+                break;
+        }
+    });
+    
+    return proteins;
+}
+
+function updateAdvancedSearchSummary(filters, proteinCount, groupedCount = 0) {
+    const summaryDiv = document.getElementById('filterSummary');
+
+    {
+        let summaryHTML = proteinCount === 0
+            ? (groupedCount ? '<strong>No protein selected</strong>' : '<strong>No protein matches these criteria</strong>')
+            : `<strong>Selected: ${proteinCount} protein(s)</strong>`;
+        if (groupedCount) {
+            summaryHTML += ` <span class="summary-grouped">(${groupedCount} more match but are in a group already)</span>`;
+        }
+        summaryHTML += '<ul>';
+
+        filters.forEach((filter, filterIndex) => {
+            const range = (filter.section === 'sequence_length' || filter.section === 'total_charge')
+                ? (filter.additionalData || {})[filter.section] : null;
+            const sectionNames = { proteins: 'Proteins', clades: 'Families', kingdoms: 'Taxon', organisms: 'Species',
+                structure: 'Structure source', substrates: 'Substrates', regioselectivity: 'Regioselectivity',
+                ec: 'EC number', sequence_length: range && range.unit === 'kda' ? 'Mass' : 'Length',
+                cbms: 'Carbohydrate-binding modules', disulfides: 'Disulfide bonds',
+                binding_aromatic_types: 'Aromatic binding residues', binding_aromatic_count: 'Number of aromatic binding residues',
+                brace_motifs: 'Brace histidine motifs', aromatic: 'Second-sphere residues',
+                metals: 'Active-site metal', total_charge: 'Net charge', loop_regions: 'Loop regions',
+                flexibility: 'Flexibility range' };
+            const sectionName = sectionNames[filter.section] || filter.section;
+            let valuesText;
+            
+            if (filter.section === 'flexibility' && filter.additionalData && filter.additionalData.flexibility) {
+                const flexData = filter.additionalData.flexibility;
+                valuesText = `${flexData.min.toFixed(1)}-${flexData.max.toFixed(1)}`;
+            } else if (range) {
+                const digits = (filter.section === 'total_charge' || range.unit === 'kda') ? 1 : 0;
+                const unit = filter.section === 'total_charge' ? 'e' : range.unit === 'kda' ? 'kDa' : 'residues';
+                valuesText = `${range.min.toFixed(digits)} to ${range.max.toFixed(digits)} ${unit}, `
+                    + (range.scope === 'full' ? 'whole structure' : 'catalytic domain');
+            } else if (filter.section === 'loop_regions' && filter.additionalData) {
+                const loopDescriptions = filter.values.map(value => {
+                    const constraints = filter.additionalData[value] || {};
+                    let desc = value;
+                    const parts = [];
+
+                    if (constraints.bindingOnly) {
+                        parts.push('binding surface only');
+                    }
+                    if (typeof constraints.lengthMin === 'number' || typeof constraints.lengthMax === 'number') {
+                        if (constraints.lengthMin !== null && constraints.lengthMax !== null) {
+                            parts.push(`length ${constraints.lengthMin}-${constraints.lengthMax}`);
+                        } else if (constraints.lengthMin !== null) {
+                            parts.push(`length ≥${constraints.lengthMin}`);
+                        } else if (constraints.lengthMax !== null) {
+                            parts.push(`length ≤${constraints.lengthMax}`);
+                        }
+                    }
+                    if (typeof constraints.flexMin === 'number' || typeof constraints.flexMax === 'number') {
+                        if (constraints.flexMin !== null && constraints.flexMax !== null) {
+                            parts.push(`RMSF ${constraints.flexMin.toFixed(1)}-${constraints.flexMax.toFixed(1)}`);
+                        } else if (constraints.flexMin !== null) {
+                            parts.push(`RMSF ≥${constraints.flexMin.toFixed(1)}`);
+                        } else if (constraints.flexMax !== null) {
+                            parts.push(`RMSF ≤${constraints.flexMax.toFixed(1)}`);
+                        }
+                    }
+
+                    if (parts.length > 0) {
+                        desc += ` (${parts.join(', ')})`;
+                    }
+                    return desc;
+                });
+                valuesText = loopDescriptions.join(', ');
+            } else {
+                // values shown by their labels (structure source, CBMs, metal, bonds, C1 / C4)
+                const options = criterionOptions(filter.section);
+                const shown = filter.values.map(value => (options.find(option => option.value === value) || { label: value }).label);
+                // a long list (many ticked proteins) is cut
+                valuesText = shown.length > 8 ? `${shown.slice(0, 8).join(', ')} … (${shown.length})` : shown.join(', ');
+            }
+            
+            const joined = filterIndex ? `<span class="summary-mode">${filter.mode}</span> ` : '';
+            summaryHTML += `<li>${joined}<strong>${sectionName}:</strong> ${valuesText}</li>`;
+        });
+
+        summaryHTML += '</ul>';
+        summaryDiv.innerHTML = summaryHTML;
+    }
+    
+    summaryDiv.style.display = 'block';
+}
+
+function clearAdvancedSearch() {
+    const container = document.getElementById('filterFieldsContainer');
+    container.innerHTML = '';
+    filterFieldCounter = 0;
+    addFilterField();
+    
+    temporarilyDisableCheckboxListeners(() => {
+        document.querySelectorAll('input[name="filter_protein_ids"]').forEach(cb => {
+            cb.checked = false;
+        });
+    });
+    
+    setTimeout(() => {
+        updateDendrogramHighlighting();
+        updateShowSelectedButton();
+        updateFilterSummary();
+    }, 100);
+}
+    </script>
+    {% if groups_on_load %}
+    {{ groups_on_load|json_script:"groupsOnLoad" }}
+    {% endif %}
+    {% if sessionCookie %}
+    {{ sessionCookie|json_script:"selectedOnLoad" }}
+    <script>
+        // the groups come back as groups (loadGroups); only the other proteins are ticked
+        loadGroups();
+        selectProteinWithCookie(JSON.parse(document.getElementById('selectedOnLoad').textContent)
+            .filter(code => !groupedCodes().has(code)));
+    </script>
+    {% endif %}
+    
+    {% include "catalogue/_footer.html" %}
+</body>
+</html>

@@ -1,0 +1,34 @@
+{% load static %}
+{# About page: how the catalogue is built (catalogue/pipeline_scheme.py). pipeline_scheme.js #}
+{# draws the arrows (data-to) and shows a box's details on hover or focus. With the pipeline #}
+{# documentation built (docs_url), a step's details link to its page there. #}
+<div class="flow" id="pipelineFlow">
+    <svg class="flow-links" aria-hidden="true"></svg>
+    {% for column in scheme %}
+    <div class="flow-col">
+        <div class="flow-col-head">
+            <span class="flow-col-title">{{ column.title }}</span>
+            <span class="flow-col-note">{{ column.note }}</span>
+        </div>
+        {% if column.group %}
+        <div class="flow-group" data-node="{{ column.group.id }}" data-to="{{ column.group.to }}">
+            {% for node in column.nodes %}{% include "catalogue/_pipeline_node.html" with parent=column.group.id %}{% endfor %}
+        </div>
+        {% else %}
+        <div class="flow-nodes">
+            {% for node in column.nodes %}{% include "catalogue/_pipeline_node.html" %}{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+<div class="flow-tip" id="pipelineFlowTip" role="tooltip" hidden></div>
+<p class="flow-legend">
+    <span>Hover a box for details</span>
+    <span><span class="flow-key resource"></span>public resource (click to open)</span>
+    <span><span class="flow-key step"></span>pipeline step</span>
+    <span><span class="flow-key own"></span>LPMOcat&rsquo;s own method</span>
+</p>
+{% if docs_url %}
+<p class="flow-docs"><a href="{{ docs_url }}">Full pipeline documentation</a>: every step with its rules, parameters, curation files and output formats.</p>
+{% endif %}

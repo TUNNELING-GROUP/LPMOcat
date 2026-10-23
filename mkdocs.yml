@@ -1,0 +1,88 @@
+# Documentation of the LPMOcat data pipeline (lpmocat_pipeline/).
+# Build:   pip install -r docs/requirements.txt && mkdocs build --strict
+#          (then the running app serves it at /docs/)
+# Preview: mkdocs serve
+site_name: LPMOcat pipeline
+site_description: >-
+  How the LPMOcat catalogue is built: the data retrieval pipeline, its steps, parameters,
+  curation files and output formats.
+docs_dir: docs
+# The web app serves this folder at /docs/ (WHITENOISE_ROOT in settings.py); the Docker image
+# builds it itself (Dockerfile). Not in git.
+site_dir: lpmocat_web/site_root/docs
+use_directory_urls: true
+
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - Running the pipeline: running.md
+  - Conventions: conventions.md
+  - Pipeline steps:
+      - steps/index.md
+      - 1 · Proteins: steps/01-proteins.md
+      - 2 · Data: steps/02-data.md
+      - 3 · Preparation: steps/03-preparation.md
+      - 4 · Alignment: steps/04-alignment.md
+      - 5 · DSSP and SASA: steps/05-dssp-sasa.md
+      - 6 · Catalytic domain: steps/06-catalytic-domain.md
+      - 7 · Core fold: steps/07-core-fold.md
+      - 8 · Second sphere: steps/08-second-sphere.md
+      - 9 · Distance matrix: steps/09-distance-matrix.md
+      - 10 · Flexibility: steps/10-flexibility.md
+      - 11 · Electrostatics: steps/11-electrostatics.md
+      - 12 · Hole hopping: steps/12-hole-hopping.md
+  - Loading into the catalogue: django-import.md
+  - Reference:
+      - Curation files: reference/curation.md
+      - Output formats: reference/outputs.md
+      - Hydrophobicity scales: reference/hydrophobicity-scales.md
+      - Versions and data releases: reference/versions.md
+  # the catalogue itself, when the documentation is served by the web app at /docs/
+  - Back to LPMOcat: /
+
+theme:
+  name: material
+  font: false            # system fonts: no requests to Google Fonts
+  palette:
+    primary: custom      # LPMOcat's green, docs/stylesheets/extra.css
+    accent: custom
+  features:
+    - navigation.indexes
+    - navigation.footer
+    - navigation.top
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  # one description per output file (docs/_formats/), shown on its step's page and on the
+  # Output formats page
+  - pymdownx.snippets:
+      base_path: [docs]
+      check_paths: true
+
+exclude_docs: |
+  _formats/
+  requirements.txt
+
+validation:
+  omitted_files: warn
+  unrecognized_links: warn
+  anchors: warn

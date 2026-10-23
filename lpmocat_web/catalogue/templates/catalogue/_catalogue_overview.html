@@ -1,0 +1,12 @@
+{% load static %}
+{# "Catalogue overview" tab of the browse page's left panel (next to "Selection criteria"), #}
+{# filled from the overview JSON by catalogue_overview.js #}
+<div class="catalogue-overview" id="catalogueOverview" role="tabpanel" aria-labelledby="leftTabOverview">
+    <p class="ov-hint">Hover a bar, dot or label to highlight its proteins in the tree; click it to select them for comparison. The clade legend of the tree does the same for a family.</p>
+
+    <div class="ov-stats" id="overviewStats"></div>
+
+    {% include "catalogue/_overview_cards.html" %}
+    {{ overview|json_script:"catalogue-overview-data" }}
+</div>
+<script src="{% static 'catalogue/js/catalogue_overview.js' %}?{% now 'U' %}" defer></script>

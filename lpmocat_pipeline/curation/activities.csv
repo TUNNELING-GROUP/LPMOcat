@@ -1,0 +1,6 @@
+struct_id,protein,substrate,form,result,oxidation,pmid,doi,evidence
+6Z5Y,PiAA17C,pectin,demethylated homogalacturonan,active,C4,34385392,10.1126/science.abj1342,"Cleaves demethylated pectin at C4. Checked through Turella et al. 2025 (PMID 40216756, open access), which cites it for this; the Science paper itself is not open"
+6Z5Y,PiAA17C,pectin,methyl-esterified homogalacturonan,active,C4,40947185,10.1016/j.carbpol.2025.124112,Abstract: 'PiAA17C generated C4-oxidized and decarboxylated C4-oxidized oligogalacturonides'
+8S6S,PsAA17A,pectin,demethylated pectin,active,C4,40216756,10.1038/s41467-025-58668-8,"Results: 'Both LPMOs [PsAA17A, PsAA17B] were shown to cleave the C4 position of demethylated pectin in the presence of ascorbate' (Supplementary Fig. 17)"
+8S71,PsAA17B,pectin,demethylated pectin,active,C4,40216756,10.1038/s41467-025-58668-8,"Results: 'Both LPMOs [PsAA17A, PsAA17B] were shown to cleave the C4 position of demethylated pectin in the presence of ascorbate' (Supplementary Fig. 17)"
+AF-A0A2I6QAZ5,PcAA14A,xylan,xylan-coated cellulose fibres,active,C1,29377002,10.1038/nchembio.2558,C1 oxidation of the xylan coating cellulose fibres; checked in the paper by the catalogue curator (2026-09-18). Tuveng et al. 2023 (PMID 37418595) found no activity on re-evaluation

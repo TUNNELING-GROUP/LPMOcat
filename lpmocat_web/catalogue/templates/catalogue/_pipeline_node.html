@@ -1,0 +1,26 @@
+{% load static %}
+{# One box of the pipeline scheme (_pipeline_scheme.html); `parent` is its group. data-docs is #}
+{# the box's page of the pipeline documentation: pipeline_scheme.js adds the link to the #}
+{# details it shows (a link inside the box would be nested in a resource box's own link). #}
+{% if node.resource %}<a class="flow-node resource" href="{{ node.resource.url }}" target="_blank" rel="noopener noreferrer"{% else %}<div class="flow-node{% if node.own %} own{% else %} step{% endif %}" tabindex="0"{% endif %}
+     data-node="{{ node.id }}"{% if node.to %} data-to="{{ node.to }}"{% endif %}{% if parent %} data-parent="{{ parent }}"{% endif %}
+     {% if node.docs and docs_url %}data-docs="{{ docs_url }}{{ node.docs }}" data-docs-label="{% if node.step %}Step {{ node.step }} in the pipeline documentation{% else %}In the pipeline documentation{% endif %}"{% endif %}
+     aria-describedby="flow-detail-{{ node.id }}">
+    <span class="flow-node-main">
+        {% if node.resource.logo %}<img class="flow-logo" src="{% static node.resource.logo %}" alt="">{% endif %}
+        <span class="flow-node-text">
+            <span class="flow-node-name">{% if node.step %}<span class="flow-step">{{ node.step }}</span>{% endif %}{{ node.name }}</span>
+            {% if node.role %}<span class="flow-node-role">{{ node.role }}</span>{% endif %}
+        </span>
+    </span>
+    {% if node.tools %}
+    <span class="flow-tools">
+        {% for tool in node.tools %}<span class="flow-tool">{% if tool.logo %}<img src="{% static tool.logo %}" alt="{{ tool.name }}" title="{{ tool.name }}">{% else %}{{ tool.name }}{% endif %}</span>{% endfor %}
+    </span>
+    {% endif %}
+    <span class="flow-detail" id="flow-detail-{{ node.id }}" hidden>
+        <strong>{% if node.step %}Step {{ node.step }} · {% endif %}{{ node.name }}</strong>
+        {{ node.detail }}
+        {% if node.tools %}<em>Software: {% for tool in node.tools %}{{ tool.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</em>{% endif %}
+    </span>
+{% if node.resource %}</a>{% else %}</div>{% endif %}

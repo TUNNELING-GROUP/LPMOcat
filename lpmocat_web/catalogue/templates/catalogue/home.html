@@ -1,0 +1,298 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png" sizes="48x48">
+    <title>About LPMOcat</title>
+    <link rel="stylesheet" href="{% static 'css/how_to_use.css' %}">
+    <link rel="stylesheet" href="{% static 'css/info_pages.css' %}">
+</head>
+<body class="info-page about-page">
+    <header>
+        <div class="header-content">
+            <div class="header-logo-left">
+                <a href="/"><img src="{% static 'images/LPMOcat_logo_new_green.svg' %}" alt="LPMOcat Logo"></a>
+            </div>
+            
+            <div class="header-center">
+                <div class="header-title">
+                    <h1>Visualize and compare structural properties of lytic polysaccharide monooxygenases</h1>
+                </div>
+                {% include "catalogue/_navigation.html" %}
+            </div>
+            
+            <div class="header-logo-right">
+                <a href="https://new-cat.eu/" target="_blank" rel="noopener noreferrer"><img src="{% static 'images/NewCat-logo.jpg' %}" alt="NewCat Logo"></a>
+            </div>
+            <div class="active-users" data-tooltip="Active users" id="active-users">
+                <img src="{% static 'images/users.svg' %}" alt="Active Users" style="width: 20px; height: 20px;"> Active users: <span id="active-users-count">1</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="info-main">
+        <h1 class="section-title">About LPMOcat</h1>
+        <p class="info-lead">
+            LPMOcat is a catalogue for exploring the structure&ndash;function relationships of lytic
+            polysaccharide monooxygenases (LPMOs). It brings together the structures, annotations and
+            per-residue properties of characterised LPMOs in one structural alignment, to help compare
+            them and to support enzyme engineering.
+        </p>
+        <div class="info-stats">
+            <div class="info-stat"><div class="info-stat-value">{{ summary.proteins }}</div><div class="info-stat-label">LPMOs</div></div>
+            <div class="info-stat"><div class="info-stat-value">{{ summary.families|length }}</div><div class="info-stat-label">CAZy families</div><div class="info-stat-note">{{ summary.families|join:", " }}</div></div>
+            <div class="info-stat"><div class="info-stat-value">{{ summary.experimental }}</div><div class="info-stat-label">Experimental structures</div><div class="info-stat-note">PDB</div></div>
+            <div class="info-stat"><div class="info-stat-value">{{ summary.predicted }}</div><div class="info-stat-label">Predicted models</div><div class="info-stat-note">AlphaFold DB {{ summary.alphafold }}{% if summary.cazyme3d %} &middot; CAZyme3D {{ summary.cazyme3d }}{% endif %}{% if summary.own_models %} &middot; own AlphaFold 3 models {{ summary.own_models }}{% endif %}</div></div>
+            <div class="info-stat"><div class="info-stat-value">{{ summary.species }}</div><div class="info-stat-label">Source species</div><div class="info-stat-note">{% for group, count in summary.taxon_groups|slice:":3" %}{{ group }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if summary.taxon_groups|length > 3 %} and more{% endif %}</div></div>
+        </div>
+
+        <div class="about-top">
+            <div class="about-top-text">
+            <section class="info-card" id="about-lpmos">
+                <div class="info-card-head"><h2>About LPMOs</h2></div>
+                <p>
+                    Lytic polysaccharide monooxygenases are copper-dependent enzymes that oxidatively
+                    cleave polysaccharides such as cellulose and chitin, boosting the degradation of biomass.
+                    They form the auxiliary activity families AA9&ndash;AA11 and AA13&ndash;AA17 of the
+                    <a href="https://www.cazy.org/" target="_blank" rel="noopener noreferrer">CAZy</a> database.
+                </p>
+                <p>
+                    Their activity relies on a conserved <span class="feat feat-site" data-feat="site" tabindex="0">histidine brace</span>
+                    that coordinates the copper ion. Catalytic efficiency and substrate specificity are shaped
+                    by the architecture of the <span class="feat feat-surface" data-feat="surface" tabindex="0">substrate-binding surface</span>,
+                    the copper <span class="feat feat-second" data-feat="site" tabindex="0">second-sphere residues</span> and the residues that can carry electrons along
+                    <span class="feat feat-hh" data-feat="hh" tabindex="0">hole-hopping pathways</span>.
+                </p>
+            </section>
+
+            <section class="info-card" id="content">
+                <div class="info-card-head">
+                    <h2>What each protein comes with</h2>
+                </div>
+                <ul class="info-compact">
+                    <li><strong>3D structure:</strong> the mature chain from the N-terminal histidine, superposed on all others</li>
+                    <li><strong>Structural elements:</strong> domains, secondary structure, core strands &beta;1&ndash;&beta;9, loops <span class="loop-name loop-l2">L2</span>, <span class="loop-name loop-l3">L3</span>, <span class="loop-name loop-ls">LS</span>, <span class="loop-name loop-l8">L8</span> and <span class="loop-name loop-lc">LC</span>, the histidine brace and second-sphere residues, and the residues of the substrate-binding surface</li>
+                    <li><strong>Annotations:</strong> taxonomy, EC numbers, substrates and regioselectivity with their papers, UniProt entries and publications</li>
+                    <li><strong>Properties:</strong> solvent accessibility, charges, hydrophobicity, flexibility and electron-transfer paths</li>
+                </ul>
+            </section>
+            </div>
+            <figure class="about-lpmo-figure">
+                {% include "catalogue/_lpmo_graphic.html" %}
+            </figure>
+        </div>
+
+        <section class="info-card" id="how-to-use">
+            <div class="info-card-head">
+                <h2 class="section-title">How to use</h2>
+                <div class="info-card-sub">Browsing the catalogue, selecting proteins and comparing them</div>
+            </div>
+            <div class="video-frame video-placeholder">Video coming soon</div>
+        </section>
+
+        <section class="info-card" id="how-built">
+            <div class="info-card-head">
+                <h2 class="section-title">How the catalogue is built</h2>
+                <div class="info-card-sub">From public resources, through the data retrieval pipeline, to this website</div>
+            </div>
+            {% include "catalogue/_pipeline_scheme.html" %}
+        </section>
+
+        <section class="info-card" id="references">
+            <div class="info-card-head">
+                <h2>References</h2>
+                <div class="info-card-sub">LPMOcat collects its data from these resources and computes its properties with these methods. Please cite them too when you use the data.</div>
+            </div>
+            <div class="info-columns">
+                <div>
+                    <h3>Data sources</h3>
+                <ul class="info-refs">
+                    <li><strong>CAZy</strong> <a href="https://doi.org/10.1093/nar/gkab1045" target="_blank" rel="noopener noreferrer">Drula et al., Nucleic Acids Res 2022</a></li>
+                    <li><strong>RCSB PDB</strong> <a href="https://doi.org/10.1093/nar/28.1.235" target="_blank" rel="noopener noreferrer">Berman et al., Nucleic Acids Res 2000</a></li>
+                    <li><strong>AlphaFold DB</strong> <a href="https://doi.org/10.1038/s41586-021-03819-2" target="_blank" rel="noopener noreferrer">Jumper et al., Nature 2021</a>; <a href="https://doi.org/10.1093/nar/gkab1061" target="_blank" rel="noopener noreferrer">Varadi et al., Nucleic Acids Res 2022</a></li>
+                    <li><strong>AlphaFold 3 (own models)</strong> <a href="https://doi.org/10.1038/s41586-024-07487-w" target="_blank" rel="noopener noreferrer">Abramson et al., Nature 2024</a></li>
+                    <li><strong>CAZyme3D</strong> <a href="https://doi.org/10.1016/j.jmb.2025.169001" target="_blank" rel="noopener noreferrer">Siva Shanmugam et al., J Mol Biol 2025</a></li>
+                    <li><strong>UniProt</strong> <a href="https://doi.org/10.1093/nar/gkae1010" target="_blank" rel="noopener noreferrer">UniProt Consortium, Nucleic Acids Res 2025</a></li>
+                    <li><strong>BRENDA</strong> <a href="https://doi.org/10.1093/nar/gkaf1113" target="_blank" rel="noopener noreferrer">Hauenstein et al., Nucleic Acids Res 2026</a></li>
+                    <li><strong>InterPro</strong> <a href="https://doi.org/10.1093/nar/gkae1082" target="_blank" rel="noopener noreferrer">Blum et al., Nucleic Acids Res 2025</a></li>
+                    <li><strong>NCBI Taxonomy</strong> <a href="https://doi.org/10.1093/database/baaa062" target="_blank" rel="noopener noreferrer">Schoch et al., Database 2020</a></li>
+                    <li><strong>SIFTS</strong> <a href="https://doi.org/10.1093/nar/gky1114" target="_blank" rel="noopener noreferrer">Dana et al., Nucleic Acids Res 2019</a></li>
+                    <li><strong>ExplorEnz</strong> <a href="https://doi.org/10.1093/nar/gkn582" target="_blank" rel="noopener noreferrer">McDonald et al., Nucleic Acids Res 2009</a></li>
+                </ul>
+                </div>
+                <div>
+                    <h3>Methods and software</h3>
+                <ul class="info-refs">
+                    <li><strong>MODELLER</strong> <a href="https://doi.org/10.1006/jmbi.1993.1626" target="_blank" rel="noopener noreferrer">Šali &amp; Blundell, J Mol Biol 1993</a></li>
+                    <li><strong>SignalP 6.0</strong> <a href="https://doi.org/10.1038/s41587-021-01156-3" target="_blank" rel="noopener noreferrer">Teufel et al., Nat Biotechnol 2022</a></li>
+                    <li><strong>US-align</strong> <a href="https://doi.org/10.1038/s41592-022-01585-1" target="_blank" rel="noopener noreferrer">Zhang et al., Nat Methods 2022</a></li>
+                    <li><strong>DSSP</strong> <a href="https://doi.org/10.1002/bip.360221211" target="_blank" rel="noopener noreferrer">Kabsch &amp; Sander, Biopolymers 1983</a></li>
+                    <li><strong>Solvent accessibility</strong> <a href="https://doi.org/10.1016/0022-2836(73)90011-9" target="_blank" rel="noopener noreferrer">Shrake &amp; Rupley, J Mol Biol 1973</a>; <a href="https://doi.org/10.1371/journal.pone.0080635" target="_blank" rel="noopener noreferrer">Tien et al., PLoS One 2013</a></li>
+                    <li><strong>Biopython</strong> <a href="https://doi.org/10.1093/bioinformatics/btp163" target="_blank" rel="noopener noreferrer">Cock et al., Bioinformatics 2009</a></li>
+                    <li><strong>BLOSUM62</strong> <a href="https://doi.org/10.1073/pnas.89.22.10915" target="_blank" rel="noopener noreferrer">Henikoff &amp; Henikoff, PNAS 1992</a></li>
+                    <li><strong>Gaussian network model, ProDy</strong> <a href="https://doi.org/10.1016/S1359-0278(97)00024-2" target="_blank" rel="noopener noreferrer">Bahar et al., Fold Des 1997</a>; <a href="https://doi.org/10.1093/bioinformatics/btr168" target="_blank" rel="noopener noreferrer">Bakan et al., Bioinformatics 2011</a></li>
+                    <li><strong>CABS-flex</strong> <a href="https://doi.org/10.1093/nar/gky356" target="_blank" rel="noopener noreferrer">Kuriata et al., Nucleic Acids Res 2018</a></li>
+                    <li><strong>PDB2PQR</strong> <a href="https://doi.org/10.1093/nar/gkh381" target="_blank" rel="noopener noreferrer">Dolinsky et al., Nucleic Acids Res 2004</a></li>
+                    <li><strong>EHPath</strong> <a href="https://doi.org/10.1073/pnas.1906394116" target="_blank" rel="noopener noreferrer">Teo et al., PNAS 2019</a></li>
+                    <li><strong>Hydrophobicity scales</strong> <a href="https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/650/Hydrophobicity_scales.html" target="_blank" rel="noopener noreferrer">CLC Genomics Workbench manual (QIAGEN)</a>: <a href="https://doi.org/10.1016/0022-2836(82)90515-0" target="_blank" rel="noopener noreferrer">Kyte &amp; Doolittle, J Mol Biol 1982</a>; <a href="https://doi.org/10.1016/0161-5890(83)90029-9" target="_blank" rel="noopener noreferrer">Hopp &amp; Woods, Mol Immunol 1983</a>; <a href="https://doi.org/10.1016/0022-2836(87)90189-6" target="_blank" rel="noopener noreferrer">Cornette et al., J Mol Biol 1987</a>; <a href="https://doi.org/10.1016/0022-2836(84)90309-7" target="_blank" rel="noopener noreferrer">Eisenberg et al., J Mol Biol 1984</a>; <a href="https://doi.org/10.1126/science.4023714" target="_blank" rel="noopener noreferrer">Rose et al., Science 1985</a>; <a href="https://doi.org/10.1038/277491a0" target="_blank" rel="noopener noreferrer">Janin, Nature 1979</a>; <a href="https://doi.org/10.1146/annurev.bb.15.060186.001541" target="_blank" rel="noopener noreferrer">Engelman et al., Annu Rev Biophys Biophys Chem 1986</a></li>
+                    <li><strong>Mol*</strong> <a href="https://doi.org/10.1093/nar/gkab314" target="_blank" rel="noopener noreferrer">Sehnal et al., Nucleic Acids Res 2021</a></li>
+                    <li><strong>D3.js</strong> <a href="https://doi.org/10.1109/TVCG.2011.185" target="_blank" rel="noopener noreferrer">Bostock et al., IEEE TVCG 2011</a></li>
+                    <li><strong>NumPy</strong> <a href="https://doi.org/10.1038/s41586-020-2649-2" target="_blank" rel="noopener noreferrer">Harris et al., Nature 2020</a></li>
+                    <li><strong>SciPy</strong> <a href="https://doi.org/10.1038/s41592-019-0686-2" target="_blank" rel="noopener noreferrer">Virtanen et al., Nat Methods 2020</a></li>
+                    <li><strong>pandas</strong> <a href="https://doi.org/10.25080/Majora-92bf1922-00a" target="_blank" rel="noopener noreferrer">McKinney, Proc. SciPy 2010</a></li>
+                    <li><strong>Web application</strong> <a href="https://www.djangoproject.com/" target="_blank" rel="noopener noreferrer">Django</a>; <a href="https://plotly.com/" target="_blank" rel="noopener noreferrer">Plotly</a></li>
+                </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="info-card" id="downloads">
+            <div class="info-card-head">
+                <h2 class="section-title">Downloads</h2>
+                <div class="info-card-sub">
+                    The data and structures of the whole catalogue{% if release.release %}, data release {{ release.release }} ({{ release.proteins }} LPMOs{% if release.brenda_release %}, BRENDA release {{ release.brenda_release }}{% endif %}){% endif %}.
+                    To download a selection, compare its proteins and use <em>Download comparison (.zip)</em> on the comparison page.
+                </div>
+            </div>
+            {% if downloads_built %}
+            <div class="info-table-wrap">
+                <table class="info-table downloads-table">
+                    <thead><tr><th>File</th><th>Content</th><th>Size</th></tr></thead>
+                    <tbody>
+                    {% for file in download_files %}
+                        <tr{% if file.kind == 'all' %} class="downloads-all"{% endif %}>
+                            <td>{% if file.size %}<a href="{% url 'download_file' file.name %}" download>{{ file.name }}</a>{% else %}{{ file.name }}{% endif %}</td>
+                            <td>{{ file.description }}</td>
+                            <td class="downloads-size">{{ file.size|default:"not available" }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>The files of this data release are not available yet.</p>
+            {% endif %}
+            <p class="downloads-note">
+                Every file names the proteins by their catalogue codes and each download's README names
+                the data release; residue numbers are those of each structure, and how every value is
+                computed is in the {% if docs_url %}<a href="{{ docs_url }}">pipeline documentation</a>{% else %}pipeline documentation{% endif %}.
+                The data are available under the
+                <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0 licence</a>:
+                you may share and adapt them for any purpose, citing LPMOcat (below) and the resources
+                they come from (References), which keep their own terms. The structure models made
+                with AlphaFold Server (structure ids starting with <code>AF3-</code>) are for
+                non-commercial use only.
+            </p>
+        </section>
+
+        {# Acknowledgement: how to cite and funding, the last part of the page; at least a window high #}
+        {# (info_pages.css), so the Acknowledgement link brings it to the top of the window #}
+        <div class="about-last" id="acknowledgement">
+        <section class="info-card">
+        <div class="info-card-head"><h2 class="section-title">Acknowledgement</h2></div>
+        <div class="info-grid">
+            <section class="info-card" id="cite">
+                <div class="info-card-head">
+                    <h2>How to cite</h2>
+                    <div class="info-card-sub">If you use LPMOcat in your research, please cite our publication.</div>
+                </div>
+                <div class="info-quote">
+                    <!-- Publication citation will be added here after journal publication -->
+                    <em>Publication details will be available after journal acceptance.</em>
+                    <!-- Publication link will be added here -->
+                    <a href="#" id="publication-link" style="display: none;">View Publication</a>
+                </div>
+                <h3>Suggested citation format</h3>
+                <div class="info-quote">
+                    [Author names], "[Article Title]," <em>[Journal Name]</em>, [Year].
+                    LPMOcat: Visualize and compare structural properties of Lytic Polysaccharide Monooxygenases.
+                    Available at: <a href="https://lpmo-cat.polsl.pl" target="_blank" rel="noopener noreferrer">https://lpmo-cat.polsl.pl</a>
+                </div>
+            </section>
+
+            <section class="info-card" id="funding">
+                <div class="info-card-head"><h2>Funding</h2></div>
+                <p>
+                    This work was supported by the <strong>NewCat project</strong>: Teaching Lytic Polysaccharide
+                    Monooxygenases to do Cytochrome P450 Catalysis
+                    (<a href="https://new-cat.eu/" target="_blank" rel="noopener noreferrer">new-cat.eu</a>).
+                </p>
+                <p>
+                    The project has received funding from the European Innovation Council (EIC) Pathfinder
+                    programme under grant agreement No. 101046815.
+                </p>
+                <div class="info-logos">
+                    <a href="https://new-cat.eu/" target="_blank" rel="noopener noreferrer"><img src="{% static 'images/newcat_acknowledgement.png' %}" alt="Funded by the EIC Pathfinder programme, grant agreement No. 101046815; NewCat"></a>
+                </div>
+            </section>
+        </div>
+        </section>
+
+        <div class="info-actions">
+            <a class="info-btn primary" href="/catalogue/">Browse the catalogue &rarr;</a>
+        </div>
+        </div>
+    </main>
+    <script src="{% static 'catalogue/js/pipeline_scheme.js' %}"></script>
+    <script>
+        // The header stays at the top; scrolled down, it shrinks to a compact bar. The page keeps
+        // room for the full header (--header-full), so the content does not move when it shrinks.
+        (function () {
+            const body = document.body;
+            const header = document.querySelector('header');
+            const last = document.getElementById('acknowledgement');
+            function measure() {
+                const compact = body.classList.contains('header-compact');
+                body.classList.remove('header-compact');
+                body.style.setProperty('--header-full', header.offsetHeight + 'px');
+                body.classList.toggle('header-compact', compact);
+                // what follows the Acknowledgement (its button, the footer): the section is made
+                // just tall enough for its link to bring it to the top with the footer at the bottom
+                const after = document.documentElement.scrollHeight
+                    - (last.getBoundingClientRect().bottom + window.scrollY);
+                body.style.setProperty('--after-last', Math.max(0, after) + 'px');
+            }
+            function update() {
+                body.classList.toggle('header-compact', window.scrollY > 40);
+            }
+            measure();
+            update();
+            window.addEventListener('resize', measure);
+            window.addEventListener('load', measure);   // the footer's logos
+            window.addEventListener('scroll', update, {passive: true});
+        })();
+    </script>
+    <script>
+        // "About LPMOs": a coloured term and its inset in the graphic highlight each other
+        (function () {
+            const top = document.querySelector('.about-top');
+            if (!top) return;
+            top.querySelectorAll('[data-feat]').forEach(function (el) {
+                const on = function () { top.dataset.hl = el.dataset.feat; };
+                const off = function () { delete top.dataset.hl; };
+                el.addEventListener('mouseenter', on);
+                el.addEventListener('focus', on);
+                el.addEventListener('mouseleave', off);
+                el.addEventListener('blur', off);
+            });
+        })();
+
+        function updateActiveUsers(){
+            fetch("/catalogue/active-users/")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("active-users-count").innerText = data.active_users;
+                })
+                .catch(err => console.error("error:", err));
+        }
+        updateActiveUsers();
+        setInterval(updateActiveUsers, 5000);
+    </script>
+    
+    {% include "catalogue/_footer.html" %}
+</body>
+</html>
+

@@ -1,0 +1,16 @@
+{% load static %}
+{# the footer of every page; data_release comes from catalogue.context_processors #}
+<footer>
+    <div class="footer-content">
+        <div class="footer-left">
+            <p class="footer-contact">For support or questions,<br>please contact us at: <a href="mailto:lpmocat@tunnelinggroup.pl">lpmocat@tunnelinggroup.pl</a></p>
+            <p class="footer-update" style="font-size: 0.9em; color: #666; margin-top: 20px;">{% if data_release %}{{ data_release }} &middot; {% endif %}<a href="/#downloads" style="color: #569976;">Downloads</a></p>
+        </div>
+        <div class="footer-center">
+            <p class="footer-credit">Created by <a href="http://www.tunnelinggroup.pl/" target="_blank" rel="noopener noreferrer"><img src="{% static 'images/Tunneling-logo.png' %}" alt="Tunneling Group Logo" class="tunneling-logo"></a></p>
+        </div>
+        <div class="footer-right">
+            <img src="{% static 'images/newcat_acknowledgement.png' %}" alt="NewCat Acknowledgement" class="acknowledgement-image">
+        </div>
+    </div>
+</footer>

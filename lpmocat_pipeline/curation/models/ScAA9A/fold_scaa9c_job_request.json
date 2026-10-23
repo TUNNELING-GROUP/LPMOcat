@@ -1,0 +1,24 @@
+[{
+ "name": "ScAA9C",
+ "modelSeeds": [
+  "1871839582"
+ ],
+ "sequences": [
+  {
+   "proteinChain": {
+    "sequence": "HTRVWGVYVNGEYQGDGIGQYVRSPPTNNPVKDLTSAAMKCNVNDAQVPKRVSVAGGDELSFEWYHDYRNDDIIASSHHGPIQVYMSGDDGATWTKIASDGYDTGSSTWAVDRLISAGGKHSVIIPDVPAGDYLLRAEIVALHEADVAYDQNPIRGAQNYPSCTQITVTSNGSDALPADGVKFPGAYTDSTPGIIFNIWPPNAQDPATYQVP",
+    "count": 1,
+    "useStructureTemplate": true
+   }
+  },
+  {
+   "ion": {
+    "ion": "CU",
+    "count": 1
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 3
+}
+]

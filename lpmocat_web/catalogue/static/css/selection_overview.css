@@ -1,0 +1,531 @@
+/* Compare page: the count tiles above the Proteins table (the overview's .ov-stat tiles), and the
+   selection overview below the plots (_selection_overview.html) -- the overview cards of
+   catalogue_overview.css beside the tree of the compared proteins (selection_tree.js).
+   Loaded after compare_layout.css. */
+
+/* the motifs and the shielding residue stay on one line (H-G-X4-P-X2-R, None (open)) */
+.catalog-table td.site-cell {
+    white-space: nowrap;
+}
+
+/* the count tiles in one row */
+.cmp-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-bottom: 14px;
+}
+
+.cmp-stats .ov-stat,
+.cmp-stats .ov-stat:nth-child(n+4) {
+    grid-column: auto;
+}
+
+@media (max-width: 800px) {
+    .cmp-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* the card title is the fold button */
+.sel-fold {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sel-fold::before {
+    content: "\25B6";
+    color: #6b8f7b;
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.sel-fold[aria-expanded="true"]::before {
+    transform: rotate(90deg);
+}
+
+.sel-fold:focus-visible {
+    outline: 2px solid #1a1a1a;
+    outline-offset: 2px;
+}
+
+.sel-card .cmp-card-tools[hidden],
+.sel-overview[hidden] {
+    display: none;
+}
+
+.sel-card .ov-segmented[hidden] {
+    display: none;
+}
+
+/* tree on the left (it stays in view while the charts scroll), charts on the right */
+.sel-layout {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.sel-tree-pane {
+    position: sticky;
+    top: 10px;
+    max-width: 50vw;
+    max-height: calc(100vh - 20px);
+    overflow: auto;
+    padding: 8px 10px 6px;
+    border: 1px solid #ececec;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.sel-tree-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    max-width: 640px;
+    margin-bottom: 6px;
+}
+
+.sel-tree-head .ov-card-title,
+.sel-tree-head .ov-card-sub {
+    display: block;
+}
+
+.sel-tree-head .ov-view-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.sel-tree-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.sel-cut {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #5a6b62;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.sel-cut input[type="range"] {
+    width: 104px;
+    accent-color: #d33682;
+    cursor: pointer;
+}
+
+.sel-cut-value {
+    width: 62px;
+    padding: 1px 4px;
+    border: 1px solid #cdd8d2;
+    border-radius: 3px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: #243b30;
+}
+
+.sel-cut-value:focus {
+    outline: none;
+    border-color: #569976;
+}
+
+.sel-cut-read {
+    min-width: 58px;
+    font-variant-numeric: tabular-nums;
+    color: #3d5a4c;
+}
+
+.sel-tree-svg {
+    display: block;
+}
+
+.sel-tree-band {
+    cursor: pointer;
+}
+
+.sel-tree-band.sel-tree-hl {
+    fill: #e3f0e8;
+}
+
+/* picked for "What sets the picked proteins apart?" (amber, apart from the hover green) */
+.sel-tree-band.sel-tree-picked {
+    fill: #fbecc0;
+}
+
+.sel-tree-band.sel-tree-picked.sel-tree-hl {
+    fill: #f5dc8e;
+}
+
+.sel-tree-branch {
+    cursor: pointer;
+    pointer-events: stroke;
+}
+
+.sel-tree-branch:hover {
+    stroke: rgba(86, 153, 118, 0.25);
+}
+
+.sel-tip-line {
+    color: #444;
+}
+
+.ov-tip-rest {
+    color: #8a8a8a;
+}
+
+/* charts: as many columns as fit; the loop card over the whole width */
+.sel-charts .ov-grid {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+}
+
+.sel-charts .ov-card-wide,
+.sel-charts .ov-section-head {
+    grid-column: 1 / -1;
+}
+
+/* Along the structural alignment, below the charts: the same frame as a chart card (not .ov-card,
+   which catalogue_overview.js takes for its own charts) */
+.sel-analysis {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.sel-an-card {
+    min-width: 0;
+    margin: 0;
+    padding: 8px 10px 6px;
+    border: 1px solid #ececec;
+    border-radius: 6px;
+}
+
+.sel-an-card figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+/* nothing to select on this page */
+.sel-overview .ov-plot {
+    cursor: default;
+}
+
+/* the page's global table rules (compare_protein.css) off the chart tables */
+.sel-overview .ov-table table {
+    text-align: left;
+}
+
+.sel-overview .ov-table table,
+.sel-overview .ov-table th,
+.sel-overview .ov-table td {
+    border: none;
+}
+
+.sel-overview .ov-table th,
+.sel-overview .ov-table td {
+    border-bottom: 1px solid #eee;
+}
+
+.sel-overview .ov-table th {
+    background: #f4f8f5;
+}
+
+@media (max-width: 1200px) {
+    .sel-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sel-tree-pane {
+        position: static;
+        max-width: none;
+        max-height: none;
+    }
+}
+
+/* "What separates these groups?" under the selection tree (grouping_features.js) */
+.gf-pane {
+    max-width: 640px;
+    margin-top: 10px;
+    border-top: 1px solid #e3ebe6;
+    padding-top: 8px;
+}
+
+.gf-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gf-controls .ov-view-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* one row per analysis: the buttons in one column, what each needs beside it */
+.gf-stack {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 10px;
+}
+
+.gf-stack > .ov-view-btn {
+    text-align: left;
+}
+
+.gf-extra {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 24px;
+}
+
+.gf-stack .gf-status {
+    grid-column: 1 / -1;
+}
+
+.gf-against {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #5a6b62;
+}
+
+.gf-against select {
+    width: auto;
+    font-size: 11.5px;
+}
+
+.gf-status {
+    font-size: 11px;
+    color: #7a8a82;
+}
+
+.gf-result.gf-stale {
+    opacity: 0.45;
+}
+
+.gf-head {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2e4a3d;
+}
+
+.gf-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 4px 0 6px;
+    font-size: 10.5px;
+    color: #5a6b62;
+}
+
+.gf-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.gf-tag {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.gf-chance-key {
+    display: inline-block;
+    width: 0;
+    height: 10px;
+    border-left: 1.5px dashed #d33682;
+}
+
+.gf-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gf-row {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr) 160px 34px;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    color: #243b30;
+    cursor: default;
+}
+
+/* picked proteins against a reference: a column with the medians or the category */
+.gf-list.gf-picked .gf-row {
+    grid-template-columns: 9px minmax(0, 1fr) minmax(0, 150px) 110px 34px;
+}
+
+.gf-dir {
+    overflow: hidden;
+    color: #6b5a1e;
+    font-size: 10.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gf-row:hover {
+    background: #eef4f0;
+}
+
+.gf-row.gf-below {
+    color: #8a9a92;
+}
+
+.gf-row.gf-follower {
+    font-size: 11px;
+    color: #5a6b62;
+}
+
+.gf-row.gf-follower .gf-name {
+    padding-left: 10px;
+}
+
+.gf-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gf-part {
+    color: #8a9a92;
+}
+
+.gf-caveat {
+    color: #c07a00;
+}
+
+.gf-bar {
+    position: relative;
+    height: 9px;
+    background: #eef2f0;
+    border-radius: 2px;
+}
+
+.gf-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px;
+}
+
+.gf-below .gf-fill {
+    opacity: 0.45;
+}
+
+.gf-chance {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    border-left: 1.5px dashed #d33682;
+}
+
+.gf-score {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.gf-more {
+    margin-top: 6px;
+}
+
+.gf-note {
+    margin-top: 6px;
+    font-size: 10.5px;
+}
+
+.gf-tooltip {
+    position: fixed;
+    z-index: 1000;
+    max-width: 420px;
+    pointer-events: none;
+}
+
+.gf-detail-head {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.gf-detail-meta {
+    font-size: 10.5px;
+    color: #5a6b62;
+    margin: 2px 0 4px;
+}
+
+.gf-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+.gf-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.gf-strip-codes {
+    color: #3d5a4c;
+}
+
+.gf-axis {
+    font-size: 10px;
+    color: #8a9a92;
+    padding-left: 22px;
+}
+
+.gf-warning {
+    margin: 4px 0 6px;
+    padding: 5px 8px;
+    border-left: 3px solid #d33682;
+    background: #fbf0f5;
+    font-size: 11px;
+    color: #5a2a40;
+}
+
+/* Protein similarity: "How is it calculated?" for the property shown (compare_protein.js) */
+.analysis-how {
+    margin: 4px 0 6px;
+    font-size: 12px;
+    color: #555;
+}
+
+.analysis-how summary {
+    color: #417459;
+    cursor: pointer;
+}
+
+.analysis-how p {
+    margin: 6px 0 0;
+    line-height: 1.45;
+}

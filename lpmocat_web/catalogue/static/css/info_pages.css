@@ -1,0 +1,982 @@
+/* About and How to Use (body.info-page): the browse page's look -- white cards with thin grey
+   frames, small titles, count tiles, folder tabs -- over how_to_use.css (header, footer) */
+
+.info-page main.info-main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 20px 15px 10px;
+    color: #333;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.info-page main a {
+    color: #417459;
+}
+
+.info-page main section {
+    margin: 0;
+    scroll-margin-top: 12px;
+}
+
+.info-page main h1 {
+    margin: 0 0 6px;
+    color: #1a1a1a;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.info-page main h2 {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    color: #1a1a1a;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* The About page's four main sections (About LPMOcat, How to use, How the catalogue is built,
+   Acknowledgement); every other heading stays small */
+.info-page main .section-title {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.info-page main h3 {
+    margin: 14px 0 4px;
+    padding: 0;
+    border: none;
+    color: #417459;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.info-page main p {
+    margin: 0 0 8px;
+}
+
+.info-page main ul,
+.info-page main ol {
+    margin: 4px 0 8px;
+    padding-left: 20px;
+}
+
+.info-page main li {
+    margin-bottom: 4px;
+}
+
+.info-lead {
+    max-width: 880px;
+    color: #444;
+    font-size: 15px;
+}
+
+/* Count tiles, as in the catalogue overview */
+.info-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin: 12px 0 16px;
+}
+
+.info-stat {
+    min-width: 0;
+    padding: 8px 12px;
+    background: #f4f8f5;
+    border-radius: 6px;
+}
+
+.info-stat-value {
+    color: #222;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.info-stat-label {
+    margin-top: 2px;
+    color: #444;
+    font-size: 12px;
+}
+
+.info-stat-note {
+    color: #707070;
+    font-size: 11px;
+}
+
+/* Cards */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.info-card {
+    min-width: 0;
+    margin: 0 0 14px;
+    padding: 14px 16px;
+    background: white;
+    border: 1px solid #d5ddd9;
+    border-radius: 8px;
+}
+
+.info-grid > .info-card {
+    margin: 0;
+}
+
+/* Two independent columns (the How to Use browse pane) */
+.info-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+}
+
+.info-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.info-column > .info-card {
+    margin: 0;
+}
+
+.info-card-wide {
+    grid-column: 1 / -1;
+}
+
+.info-card-head {
+    margin-bottom: 10px;
+}
+
+.info-card-sub {
+    margin-top: 2px;
+    color: #666;
+    font-size: 12px;
+}
+
+.info-muted {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Quoted text (citations) and logos */
+.info-quote {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    background: #f4f8f5;
+    border-left: 3px solid #569976;
+    border-radius: 0 6px 6px 0;
+}
+
+.info-logos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.info-logos img {
+    max-width: 100%;
+    height: 48px;
+    object-fit: contain;
+}
+
+/* Tables */
+.info-table-wrap {
+    overflow-x: auto;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.info-table th,
+.info-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    vertical-align: top;
+}
+
+.info-table th {
+    background: #f4f8f5;
+    color: #444;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.info-table td:first-child {
+    min-width: 120px;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+.info-table td:last-child {
+    min-width: 170px;
+}
+
+/* Folder tabs, as on the browse page (catalogue_overview.css .left-tabs) */
+.info-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-top: 16px;
+    border-bottom: 1px solid #d5ddd9;
+}
+
+.info-tabs [role="tab"] {
+    margin-bottom: -1px;
+    padding: 10px 18px 9px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: #5b6661;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.info-tabs [role="tab"]:hover:not([aria-selected="true"]) {
+    background: #f1f6f3;
+    color: #2f5d45;
+}
+
+.info-tabs [role="tab"][aria-selected="true"] {
+    background: white;
+    border-color: #d5ddd9;
+    color: #2f5d45;
+    box-shadow: inset 0 3px 0 #569976;
+}
+
+.info-tabs [role="tab"]:focus-visible {
+    outline: 2px solid #1a1a1a;
+    outline-offset: -2px;
+}
+
+.info-pane {
+    padding: 14px 16px;
+    border: 1px solid #d5ddd9;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.info-pane[hidden] {
+    display: none;
+}
+
+/* cards inside a pane: the overview's lighter frame */
+.info-pane .info-card {
+    border-color: #ececec;
+    border-radius: 6px;
+}
+
+/* The three steps of a session */
+.info-page main .info-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: info-step;
+}
+
+.info-page main .info-steps li {
+    display: flex;
+    gap: 10px;
+    margin: 0;
+    padding: 8px 12px;
+    background: #f4f8f5;
+    border-radius: 6px;
+    counter-increment: info-step;
+}
+
+.info-steps li::before {
+    content: counter(info-step);
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #569976;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.info-steps strong {
+    display: block;
+    color: #1a1a1a;
+}
+
+.info-steps span {
+    color: #555;
+    font-size: 13px;
+}
+
+/* Buttons */
+.info-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 4px 0 20px;
+}
+
+.info-btn {
+    padding: 8px 14px;
+    border: 1px solid #cfd9d4;
+    border-radius: 6px;
+    background: white;
+    color: #417459;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.info-page main a.info-btn {
+    color: #417459;
+}
+
+.info-btn:hover {
+    background: #eef6f0;
+}
+
+.info-page main a.info-btn.primary {
+    background: #569976;
+    border-color: #569976;
+    color: white;
+}
+
+.info-page main a.info-btn.primary:hover {
+    background: #417459;
+}
+
+/* Pipeline scheme (_pipeline_scheme.html, pipeline_scheme.js) */
+.flow {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    column-gap: 32px;
+}
+
+.flow-links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.flow-link {
+    fill: none;
+    stroke: #b8c4be;
+    stroke-width: 1.5;
+}
+
+.flow-link.on {
+    stroke: #569976;
+    stroke-width: 2.5;
+}
+
+.flow-arrowhead {
+    fill: #b8c4be;
+}
+
+.flow-arrowhead.on {
+    fill: #569976;
+}
+
+.flow-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.flow-col-head {
+    display: flex;
+    flex-direction: column;
+    min-height: 36px;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.flow-col-title {
+    color: #417459;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.flow-col-note {
+    color: #777;
+    font-size: 11px;
+}
+
+.flow-nodes {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: 8px;
+}
+
+.flow-group {
+    display: grid;
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: space-around;
+    gap: 8px;
+    padding: 10px;
+    background: #f4f8f5;
+    border: 1px solid #d5ddd9;
+    border-radius: 10px;
+}
+
+.flow-group.linked {
+    border-color: #569976;
+}
+
+.flow-node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 7px 9px;
+    background: white;
+    border: 1px solid #cfd9d4;
+    border-radius: 8px;
+    color: inherit;
+    font-size: 12px;
+    line-height: 1.3;
+    text-decoration: none;
+    cursor: default;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.info-page main a.flow-node {
+    color: inherit;
+    cursor: pointer;
+}
+
+.flow-node.step {
+    background: #eef6f0;
+    border-color: #9fbfae;
+}
+
+.flow-node.own {
+    background: #f7faf8;
+    border: 1px dashed #569976;
+}
+
+.flow-node.active,
+.flow-node:focus-visible {
+    border-color: #417459;
+    box-shadow: 0 0 0 2px rgba(86, 153, 118, 0.3);
+    outline: none;
+}
+
+.flow-node.linked {
+    border-color: #569976;
+}
+
+.flow-node-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.flow-logo {
+    flex-shrink: 0;
+    max-width: 64px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.flow-node-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.flow-node-name {
+    color: #1a1a1a;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.flow-step {
+    display: inline-block;
+    min-width: 18px;
+    margin-right: 5px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    background: #569976;
+    border-radius: 9px;
+    color: white;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    vertical-align: 1px;
+}
+
+.flow-node-role {
+    color: #666;
+    font-size: 11px;
+}
+
+.flow-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.flow-tool {
+    padding: 1px 6px;
+    background: #f1f4f2;
+    border-radius: 10px;
+    color: #444;
+    font-size: 10.5px;
+}
+
+.flow-tool img {
+    max-width: 60px;
+    height: 16px;
+    vertical-align: middle;
+    object-fit: contain;
+}
+
+.flow-tip {
+    position: fixed;
+    z-index: 10001;
+    max-width: 300px;
+    padding: 8px 10px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    color: #333;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.flow-tip[hidden] {
+    display: none;
+}
+
+.flow-tip strong {
+    display: block;
+    margin-bottom: 3px;
+    color: #1a1a1a;
+    font-size: 13px;
+}
+
+.flow-tip em {
+    display: block;
+    margin-top: 5px;
+    color: #417459;
+    font-style: normal;
+}
+
+.flow-tip .flow-doc {
+    display: block;
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px solid #e3e9e5;
+    color: #417459;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.flow-tip .flow-doc:hover,
+.flow-tip .flow-doc:focus {
+    text-decoration: underline;
+}
+
+.info-page main .flow-docs {
+    margin: 10px 0 0;
+    font-size: 13px;
+}
+
+.flow-docs a {
+    color: #417459;
+    font-weight: 600;
+}
+
+.flow-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    margin: 14px 0 0;
+    color: #666;
+    font-size: 12px;
+}
+
+.info-page main .flow-legend {
+    margin: 14px 0 0;
+}
+
+.flow-key {
+    display: inline-block;
+    width: 16px;
+    height: 11px;
+    margin-right: 5px;
+    background: white;
+    border: 1px solid #cfd9d4;
+    border-radius: 3px;
+    vertical-align: -1px;
+}
+
+.flow-key.step {
+    background: #eef6f0;
+    border-color: #9fbfae;
+}
+
+.flow-key.own {
+    background: #f7faf8;
+    border: 1px dashed #569976;
+}
+
+/* Narrow screens: columns stacked, joined by a down arrow */
+@media (max-width: 999px) {
+    .flow {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .flow-links {
+        display: none;
+    }
+
+    .flow-col:not(:last-child)::after {
+        content: "↓";
+        align-self: center;
+        margin: 8px 0 -30px;
+        color: #9fbfae;
+        font-size: 20px;
+        line-height: 22px;
+    }
+
+    .flow-nodes,
+    .flow-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+
+    .flow-col-head {
+        min-height: 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .info-grid,
+    .info-columns,
+    .info-page main .info-steps {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* About page: compact reference lists (one line per resource or method) */
+.info-refs {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.info-refs li {
+    margin: 2px 0;
+}
+
+/* About page: the "About LPMOs" and "What each protein comes with" cards stacked on the left,
+   the LPMO graphic in its own card on the right; the coloured terms match the graphic's insets
+   (the binding-surface blue is darker than the graphic's #89b8e7, which is too light for text) */
+.about-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+    gap: 14px;
+    align-items: stretch;
+    margin-bottom: 14px;
+}
+
+.about-top-text {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.about-top-text > .info-card {
+    margin: 0;
+}
+
+.about-lpmo-figure {
+    margin: 0;
+    display: flex;
+    align-items: center;    /* the card is as tall as the two text cards; the graphic sits in its middle */
+    justify-content: center;
+}
+
+.about-lpmo-figure .lpmo-graphic {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+}
+
+/* A coloured term of the text and its inset highlight each other: home.html sets data-hl on
+   .about-top to the hovered or focused feature (site | surface | hh); the other insets fade */
+.lg-feat {
+    outline: none;
+    transition: opacity 0.15s;
+}
+
+.lg-frame,
+.lg-band {
+    transition: stroke-width 0.15s, fill-opacity 0.15s;
+}
+
+.about-top[data-hl] .lg-feat {
+    opacity: 0.3;
+}
+
+.about-top[data-hl="site"] .lg-feat[data-feat="site"],
+.about-top[data-hl="surface"] .lg-feat[data-feat="surface"],
+.about-top[data-hl="hh"] .lg-feat[data-feat="hh"] {
+    opacity: 1;
+}
+
+.about-top[data-hl="site"] .lg-feat[data-feat="site"] .lg-frame,
+.about-top[data-hl="surface"] .lg-feat[data-feat="surface"] .lg-frame,
+.about-top[data-hl="hh"] .lg-feat[data-feat="hh"] .lg-frame {
+    stroke-width: 26;
+}
+
+.about-top[data-hl="surface"] .lg-band {
+    fill-opacity: 0.85;    /* the binding face on the main structure */
+}
+
+.about-top[data-hl="site"] .lg-band,
+.about-top[data-hl="hh"] .lg-band {
+    fill-opacity: 0.15;
+}
+
+.feat {
+    font-weight: 600;
+    white-space: nowrap;   /* a coloured term never breaks at its hyphen */
+}
+
+.feat[data-feat] {
+    border-radius: 3px;
+    outline: none;
+    transition: background-color 0.15s;
+}
+
+.about-top[data-hl="site"] .feat[data-feat="site"] { background-color: rgba(143, 23, 143, 0.12); }
+.about-top[data-hl="surface"] .feat[data-feat="surface"] { background-color: rgba(58, 120, 184, 0.16); }
+.about-top[data-hl="hh"] .feat[data-feat="hh"] { background-color: rgba(192, 0, 0, 0.10); }
+
+.feat-site { color: #8f178f; }
+.feat-second { color: #a8611a; }   /* the graphic's wheat sticks (#dcb690), darkened for text */
+.feat-surface { color: #3a78b8; }
+.feat-hh { color: #c00000; }
+
+.info-compact {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    line-height: 1.55;
+}
+
+@media (max-width: 800px) {
+    .about-top {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Consecutive full-width cards (e.g. the pipeline scheme and the references on the About page):
+   the general "main section { margin: 0 }" above removes the card margin, so add the gap here */
+.info-page main > section.info-card + section.info-card {
+    margin-top: 14px;
+}
+
+/* About page: the loop names in the colours of the loops (makePlots.MOLSTAR_COLOR_BY_GROUP), as in
+   the Secondary Structure and Loops plot, the 3D "colour by loops" and the graphic's surface inset */
+.loop-name {
+    font-weight: 700;
+}
+
+.loop-l2 { color: rgb(255, 69, 0); }
+.loop-l3 { color: rgb(255, 140, 0); }
+.loop-ls { color: rgb(138, 43, 226); }
+.loop-l8 { color: rgb(30, 144, 255); }
+.loop-lc { color: rgb(34, 139, 34); }
+
+/* How to use: the video (16:9); until it exists, an empty frame */
+.video-frame {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.video-frame iframe,
+.video-frame video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.video-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f6f4;
+    border: 1px dashed #c4d0ca;
+    color: #707070;
+    font-size: 15px;
+}
+
+/* Acknowledgement (how to cite, funding): the last part of the About page, at least a window
+   high (less the compact header bar), so its link shows it alone at the top of the window */
+#acknowledgement {
+    margin-top: 14px;
+    /* the window less the bar above it and what follows it (the button and the footer, measured
+       into --after-last in home.html), so the footer ends at the bottom of the window */
+    min-height: calc(100vh - var(--last-margin, 64px) - var(--after-last, 0px));
+}
+
+/* About page: the header stays at the top (fixed, with room kept for its full height, which
+   home.html measures into --header-full); scrolled down, it shrinks to a compact bar */
+body.about-page {
+    padding-top: var(--header-full, 120px);
+}
+
+body.about-page header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+}
+
+body.about-page .header-content,
+body.about-page .header-logo-left img,
+body.about-page .header-logo-right img {
+    transition: padding 0.2s ease, height 0.2s ease;
+}
+
+body.about-page.header-compact .header-content {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+body.about-page.header-compact .header-title {
+    display: none;
+}
+
+body.about-page.header-compact .header-logo-left img {
+    height: 36px;
+}
+
+body.about-page.header-compact .header-logo-right img {
+    height: 32px;
+}
+
+/* the section links stop below the compact bar */
+body.about-page section[id],
+body.about-page #acknowledgement {
+    scroll-margin-top: 80px;
+}
+
+@media (max-width: 768px) {
+    body.about-page.header-compact .header-logo-left,
+    body.about-page.header-compact .header-logo-right,
+    body.about-page.header-compact .active-users {
+        display: none;
+    }
+
+    /* one row of links, scrolled sideways if it does not fit */
+    body.about-page.header-compact .header-content {
+        padding: 4px 8px;
+    }
+
+    body.about-page.header-compact .header-navigation {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    body.about-page.header-compact .header-navigation a {
+        flex: 0 0 auto;
+        width: auto;
+        margin-bottom: 0;
+        padding: 8px 12px;
+        border-bottom: none;
+        border-right: 1px solid rgba(0,0,0,0.1);
+    }
+
+    body.about-page section[id],
+    body.about-page #acknowledgement {
+        scroll-margin-top: 56px;
+    }
+}
+
+/* How to cite and Funding inside the Acknowledgement section */
+.info-card > .info-grid:last-child {
+    margin-bottom: 0;
+}
+
+/* Acknowledgement has a 14 px gap above it: stop that much higher, so nothing of the References
+   card shows under the bar */
+body.about-page {
+    --last-margin: 64px;
+}
+
+body.about-page #acknowledgement {
+    scroll-margin-top: var(--last-margin);
+}
+
+@media (max-width: 768px) {
+    body.about-page {
+        --last-margin: 52px;
+    }
+}
+
+/* Downloads section (About page): the archive of everything first and in bold; sizes on one line */
+.downloads-table .downloads-all td {
+    font-weight: 600;
+}
+
+.downloads-table .downloads-size {
+    white-space: nowrap;
+    color: #666;
+}
+.downloads-note {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: #555;
+}

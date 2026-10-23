@@ -1,0 +1,4 @@
+struct_id,code,reason
+AF-A0A2I6QAZ5,PcAA14A,"The name used in the literature (Couturier et al. 2018); CAZy lists PcoAA14A first, which update_protein_codes would otherwise take"
+AF-Q2US83,AoAA9A,"The name used in the literature (Frandsen et al. 2021, JBC); Swiss-Prot gives the A. oryzae entry the short name AgAA9A, that of the Armillaria gallica protein (A0A2H3EDS0)"
+AF-G0SDM5,CtPMO1,"The name used in the literature (Chen et al. 2018, Biotechnol Biofuels); constructed from UniProt's organism name it would be TtAA9 (Thermochaetoides thermophila, formerly Chaetomium thermophilum), like T. terrestris and T. thermophilus"

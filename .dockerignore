@@ -1,0 +1,31 @@
+# The image needs only lpmocat_web/ (code and its requirements.txt) and the documentation sources
+# (docs/, mkdocs.yml); the data are mounted
+# (docker-compose.yml). Without this file the build would send the pipeline data and the git
+# history (~12 GB) to Docker and copy the database into the image.
+.git
+data
+lpmocat_pipeline
+**/__pycache__
+**/*.pyc
+.env
+.env.*
+!.env.example
+lpmocat_web/db.sqlite3
+lpmocat_web/db.sqlite3.*
+lpmocat_web/*.sqlite3
+lpmocat_web/plot_cache
+lpmocat_web/staticfiles
+# the documentation is built in the image (Dockerfile), not copied from a local build
+lpmocat_web/site_root
+lpmocat_web/media
+*.log
+.idea
+.venv
+venv
+# files and hidden folders at the top level: the image copies only lpmocat_web/, docs/ and
+# mkdocs.yml
+.*
+*.csv
+*.md
+*.txt
+*.tar.gz

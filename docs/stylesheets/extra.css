@@ -1,0 +1,13 @@
+/* LPMOcat's colours (lpmocat_web/catalogue/static/css/info_pages.css) */
+:root {
+    --md-primary-fg-color: #417459;
+    --md-primary-fg-color--light: #569976;
+    --md-primary-fg-color--dark: #35604a;
+    --md-accent-fg-color: #569976;
+    --md-typeset-a-color: #35604a;
+}
+
+/* wide parameter and field tables: keep code values on one line */
+.md-typeset table:not([class]) code {
+    white-space: nowrap;
+}

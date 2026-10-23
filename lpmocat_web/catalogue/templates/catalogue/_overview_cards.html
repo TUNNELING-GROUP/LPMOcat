@@ -1,0 +1,114 @@
+{# The overview chart cards (catalogue_overview.js fills each by its data-chart): the browse #}
+{# page's "Catalogue overview" tab and the compare page's selection overview #}
+<div class="ov-grid">
+    <figure class="ov-card ov-card-tall" data-chart="families">
+        <figcaption>
+            <span class="ov-card-title">Proteins per family</span>
+            <span class="ov-card-sub"><span class="ov-legend-item" data-part="experimental"><span class="ov-swatch" style="background:#666"></span> experimental structure (PDB)</span> &nbsp;<span class="ov-legend-item" data-part="predicted"><span class="ov-swatch" style="background:#c9c9c9"></span> predicted model</span></span>
+        </figcaption>
+    </figure>
+    <figure class="ov-card ov-card-tall" data-chart="taxonomy">
+        <figcaption>
+            <span class="ov-card-title">Source organisms</span>
+            <span class="ov-card-sub">NCBI Taxonomy: phylum (class of arthropods, family of viruses)</span>
+        </figcaption>
+    </figure>
+    <figure class="ov-card" data-chart="substrates">
+        <figcaption>
+            <span class="ov-card-title">Substrates</span>
+            <span class="ov-card-sub">Reported in the literature, else from the EC numbers and protein names; a protein can count twice</span>
+        </figcaption>
+    </figure>
+    <!-- oxidised positions: solid = reported in papers, light = from the EC numbers; the
+         substrates card above works the same way (both with an All / Reported in papers switch) -->
+    <figure class="ov-card" data-chart="regioselectivity">
+        <figcaption>
+            <span class="ov-card-title">Regioselectivity</span>
+            <span class="ov-card-sub">C1, C4 or both: <span class="ov-swatch" style="background:#666"></span> reported in papers &nbsp;<span class="ov-swatch" style="background:#c9c9c9"></span> from the EC numbers</span>
+        </figcaption>
+    </figure>
+    <!-- length or mass: a distribution chart, so it has its own copy of the switches of the
+         Properties heading below (region, all proteins / by family); the two copies stay in
+         step, and either acts on every distribution chart -->
+    <figure class="ov-card" data-chart="size">
+        <figcaption>
+            <span class="ov-card-title">Length</span>
+            <span class="ov-card-sub"></span>
+            <div class="ov-card-controls ov-card-switches">
+                <div class="ov-segmented" role="group" aria-label="Region of the protein">
+                    <button type="button" data-scope="cd" class="active" aria-pressed="true">Catalytic domain</button>
+                    <button type="button" data-scope="all" aria-pressed="false" title="The whole structure: the catalytic domain and any CBMs, linkers and tails in it">All domains</button>
+                </div>
+                <div class="ov-segmented" role="group" aria-label="Proteins shown">
+                    <button type="button" data-view="stacked" class="active" aria-pressed="true">All proteins</button>
+                    <button type="button" data-view="family" aria-pressed="false">By family</button>
+                </div>
+            </div>
+        </figcaption>
+    </figure>
+    <!-- CBMs of the protein (UniProt) or inside its catalogue structure (its own switch) -->
+    <figure class="ov-card" data-chart="cbms">
+        <figcaption>
+            <span class="ov-card-title">Carbohydrate-binding modules</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <!-- disulfide bonds inside the catalytic domain: how many, or which regions they join
+         (its own switch) -->
+    <figure class="ov-card" data-chart="disulfides">
+        <figcaption>
+            <span class="ov-card-title">Disulfide bonds</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <!-- the motif after the N-terminal or the internal His of the brace (its own switch) -->
+    <figure class="ov-card" data-chart="brace">
+        <figcaption>
+            <span class="ov-card-title">Brace histidine motifs</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <!-- second-sphere motif, with or without spacing, or the shielding residue
+         (its own switch) -->
+    <figure class="ov-card ov-card-xtall" data-chart="motifs">
+        <figcaption>
+            <span class="ov-card-title">Second-sphere motif</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <!-- the switches apply to the distribution charts: Length above (which has its own copy of
+         them) and the charts below (the region: not to the loops, which lie in the catalytic
+         domain) -->
+    <div class="ov-section-head">
+        <span class="ov-section-title">Properties</span>
+        <div class="ov-section-switches">
+            <div class="ov-segmented" role="group" aria-label="Region of the protein">
+                <button type="button" data-scope="cd" class="active" aria-pressed="true">Catalytic domain</button>
+                <button type="button" data-scope="all" aria-pressed="false" title="The whole structure: the catalytic domain and any CBMs, linkers and tails in it">All domains</button>
+            </div>
+            <div class="ov-segmented" role="group" aria-label="Proteins shown">
+                <button type="button" data-view="stacked" class="active" aria-pressed="true">All proteins</button>
+                <button type="button" data-view="family" aria-pressed="false">By family</button>
+            </div>
+        </div>
+    </div>
+    <figure class="ov-card" data-chart="hydrophobicity">
+        <figcaption>
+            <span class="ov-card-title">Hydrophobicity</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <figure class="ov-card" data-chart="charge">
+        <figcaption>
+            <span class="ov-card-title">Net charge</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+    <!-- loop regions: length, flexibility, hydrophobicity or charge (its own switch) -->
+    <figure class="ov-card ov-card-wide" data-chart="loops">
+        <figcaption>
+            <span class="ov-card-title">Loop lengths</span>
+            <span class="ov-card-sub"></span>
+        </figcaption>
+    </figure>
+</div>

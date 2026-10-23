@@ -1,0 +1,2 @@
+struct_id,first_residue,reason
+6RS9,keep,"LsAA9B: the deposited chain starts at Arg and has no His-1, so no histidine brace; the N-terminus stays as deposited"

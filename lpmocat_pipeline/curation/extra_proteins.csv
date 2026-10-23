@@ -1,0 +1,3 @@
+accession,protein,family,pmid,reason
+G0SDM5,CtPMO1,AA9,29991963,"Unreviewed entry with published experimental results (Chen et al. 2018, Biotechnol Biofuels); the genome entry (UniParc UPI0002280AC7), which holds the full CtPMO1 sequence (signal peptide, catalytic domain, linker). The paper's own GenBank protein AGY80105.1 (UniProt V9PD45) is partial: it starts after the N-His, so its model would have no histidine brace"
+A0A896IH95,CgAA15A,AA15,33421883,"Unreviewed entry with published experimental results (Franco Cairo et al. 2021, J Inorg Biochem); the paper's GenBank protein QSC42436.1 (UniParc UPI001AF774D9)"

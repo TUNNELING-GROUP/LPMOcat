@@ -1,0 +1,23 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      # only on the host itself: the host's web server (reverse proxy) passes requests on
+      - "127.0.0.1:${LPMOCAT_PORT:-8000}:8000"
+    volumes:
+      - ./lpmocat_web/media:/app/lpmocat_web/media
+      - ./lpmocat_web/db.sqlite3:/app/lpmocat_web/db.sqlite3
+      # pipeline outputs the app reads (not in git; they come with the data bundle, see the README)
+      - ./data/06_catalytic_domain:/app/data/06_catalytic_domain:ro
+      - ./data/09_distance_matrix:/app/data/09_distance_matrix:ro
+      - ./data/django_outputs:/app/data/django_outputs:ro
+      # compare-page plot cache, kept across restarts and rebuilds
+      - plot_cache:/app/lpmocat_web/plot_cache
+    restart: unless-stopped
+
+volumes:
+  plot_cache:

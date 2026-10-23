@@ -1,0 +1,8 @@
+# Generated figures from the flexibility analysis scripts (re-created on demand).
+flexibility_comparison/
+
+# Generated figures from binding_surface_similarity.py
+similarity_out/
+
+# Generated figures and PyMOL sessions from binding_surface.py --plot
+binding_plane_out/

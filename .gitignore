@@ -1,0 +1,39 @@
+.venv
+.idea
+./migrations/
+./media/
+db.sqlite3
+*.pyc
+precalculated_dendrogram*.csv
+.env
+
+# Everything the pipeline writes: one folder per step, django_outputs/ (written by the Django
+# commands map_domain_ranges and pregenerate_plots), logs/ and the BRENDA release downloaded for
+# step 2j (CC BY 4.0) -- generated or downloaded, too large for git
+/data/
+cabsflex_overnight.log
+cabsflex_parallel.log
+hole_hopping_run*.log
+new_templates_loops.txt
+# Compare-page plot bundle cache (FileBasedCache)
+plot_cache/
+lpmocat_web/plot_cache/
+
+# LibreOffice lock files, left whenever a CSV is open in the editor
+.~lock.*#
+
+# Data bundles for the server (deploy/make_data_bundle.sh)
+lpmocat-data-*.tar.gz
+
+# Pipeline documentation as built by MkDocs (mkdocs.yml site_dir); the sources are in docs/
+lpmocat_web/site_root/
+
+# Static files collected by `manage.py collectstatic` (the container runs it at start)
+lpmocat_web/staticfiles/
+
+# Manuscript drafts (not part of the app)
+paper/
+
+# Local notes, kept on the developer's machine only
+to_do.txt
+DEPLOY.md
