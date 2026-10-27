@@ -1725,6 +1725,46 @@ h2 {
     color: #417459;
 }
 
+/* A narrow tree window: below ~1100 px the controls' block (~352 x 61 px, top right) reaches
+   the circle (drawn at most ~672 px wide) and covered the labels at its top; there they leave
+   the tree and make a row above it (the legend is inside #phyloTree, so it moves down with the
+   tree). Wider windows keep them in the free corner */
+.tree-frame {
+    container-type: inline-size;
+}
+
+@container (max-width: 1150px) {
+    .tree-controls {
+        position: static;
+        max-width: none;
+        justify-content: flex-end;
+        gap: 4px 10px;
+        padding: 6px 10px 0;
+        background: none;
+    }
+
+    .tree-alignment-download {
+        order: 0;
+        flex-basis: auto;
+        white-space: nowrap;
+    }
+}
+
+/* the short label only where the long one would push the row onto a second line */
+.tree-alignment-label-short {
+    display: none;
+}
+
+@container (max-width: 700px) {
+    .tree-alignment-label {
+        display: none;
+    }
+
+    .tree-alignment-label-short {
+        display: inline;
+    }
+}
+
 #phyloTree::before {
     position: absolute;
     top: 50%;

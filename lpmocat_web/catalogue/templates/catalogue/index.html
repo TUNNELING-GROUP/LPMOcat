@@ -202,7 +202,7 @@
                             <label class="tree-option" title="Show or hide the protein names around the tree"><input type="checkbox" id="toggle-tree-labels" checked> Labels</label>
                             <button type="button" id="export-svg" class="tree-export-btn" title="Download the tree as an SVG image">Export SVG</button>
                             <div class="tree-alignment-download" title="Download the structural alignment of all catalogue proteins as FASTA">
-                                Alignment (.fasta):
+                                <span class="tree-alignment-label">Alignment (.fasta):</span><span class="tree-alignment-label-short">FASTA:</span>
                                 <a href="{% url 'download_alignment' %}?view=catalytic" download>Catalytic domain</a> &middot;
                                 <a href="{% url 'download_alignment' %}?view=full" download>Full length</a>
                             </div>
