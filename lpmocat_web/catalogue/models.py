@@ -83,6 +83,11 @@ class Protein(models.Model):
     disulfides = models.TextField(blank=True, null=True,
                                   help_text='Disulfide bonds as JSON [[residue, residue, SG-SG '
                                             'distance (Å)], ...] (residue numbers of the structure)')
+    modified_residues = models.TextField(
+        blank=True, null=True,
+        help_text='Modified amino acids of the deposited chain, replaced by their parent in the '
+                  'structure (pipeline step 3f), JSON [{"residue": 1, "name": "HIC", "parent": "HIS"}]; '
+                  '[] = none (every model)')
     histidine_brace = models.CharField(max_length=30)
     second_sphere_aromatic = models.CharField(max_length=30, blank=True, null=True)
     histidine_brace_interactions = models.TextField(max_length=10**10, blank=True, null=True)

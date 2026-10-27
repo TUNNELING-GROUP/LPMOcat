@@ -8,7 +8,7 @@ files, so what is removed here is absent from every calculation.
 | --- | --- |
 | Code | `fill_gaps.py`, `modeller_worker.py` (3a), `preprocess_structures.py` (3b–3i) |
 | Reads | [Step 2](02-data.md): structure files, `pdb_selection.csv`, `domain_annotations.json` · `curation/n_terminus.csv`, `curation/c_terminus.csv` · RCSB Chemical Component Dictionary |
-| Writes | `03_preparation/filled/<id>.pdb`, `filled/modelled_residues.json`, `signal_peptides.json`, `signalp/`, `preprocessed/<id>.pdb` |
+| Writes | `03_preparation/filled/<id>.pdb`, `filled/modelled_residues.json`, `signal_peptides.json`, `signalp/`, `modified_residues.json`, `preprocessed/<id>.pdb` |
 | External tools | MODELLER (3a) and SignalP 6 (3h), both [optional](../installation.md#optional-licensed-tools) |
 | Run time | 2–3 min |
 
@@ -42,7 +42,7 @@ where they fill exactly the gaps found now, and the other structures go on with 
 | 3c | The first model of an NMR ensemble | One conformation per protein |
 | 3d | The chain selected in step 2 | The alignment needs a single polypeptide |
 | 3e | The first alternate conformer listed, chosen per residue, not per atom | Each residue stays one consistent conformer; the first is not always `A` |
-| 3f | A modified residue of the chain becomes an `ATOM` record of its standard parent from the RCSB Chemical Component Dictionary (HIC → HIS, the N-methylated N-His of fungal LPMOs) | Alignment, DSSP and force fields know only standard residues |
+| 3f | A modified residue of the chain becomes an `ATOM` record of its standard parent from the RCSB Chemical Component Dictionary (HIC → HIS, the N-methylated N-His of fungal LPMOs); which residues were modified is saved in `modified_residues.json` | Alignment, DSSP and force fields know only standard residues; the modification itself is a property of the deposited protein, so it is kept |
 | 3g | Waters, ligands and ions are removed, except the active-site metal; `ANISOU` records too | See below |
 
 **The active-site metal** is a Cu, Zn, Ni, Co, Mn, Fe, Mo or Mg `HETATM` with at least two
@@ -140,6 +140,10 @@ working files are in `filled/modeller/<id>/`.
 --8<-- "_formats/signal_peptides.md"
 
 SignalP's own output is kept in `signalp/eukarya/` and `signalp/other/`.
+
+### modified_residues.json
+
+--8<-- "_formats/modified_residues.md"
 
 ## What the log tells you
 

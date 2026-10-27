@@ -44,6 +44,7 @@ Every file below is described under [Output formats](reference/outputs.md).
 | --- | --- |
 | 1 | `cazy_lpmos.csv`, `other_lpmos.csv` |
 | 2 | `pdb_selection.csv`, `uniprot_ids.json`, `uniprot_references.json`, `domain_annotations.json`, `taxonomy.json`, `activities.json` |
+| 3 | `modified_residues.json` |
 | 4 | `alignment.fasta`, `aligned/<id>.pdb` |
 | 5 | `sasa.json`, `secondary_structure.json` |
 | 6 | `disulfides.json`, `histidine_brace.json` |

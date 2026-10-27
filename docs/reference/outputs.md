@@ -17,6 +17,7 @@ positions or alignment columns, and it matters which.
 | [`02_data/activities.json`](#activitiesjson) | 2j | Reported substrates and oxidised positions |
 | [`03_preparation/filled/modelled_residues.json`](#modelled_residuesjson) | 3a | Rebuilt loops |
 | [`03_preparation/signal_peptides.json`](#signal_peptidesjson) | 3h | SignalP predictions |
+| [`03_preparation/modified_residues.json`](#modified_residuesjson) | 3f | Modified residues of the deposited chains |
 | [`03_preparation/preprocessed/<id>.pdb`](#prepared-structures) | 3 | Prepared structures |
 | [`04_alignment/…`](#alignment-files) | 4 | Alignment, matrices, superposed structures |
 | [`05_dssp_sasa/sasa.json`](#sasajson) | 5a | Solvent accessibility |
@@ -81,6 +82,10 @@ JSON files keyed by structure use the [`struct_id`](../conventions.md#structure-
 ### signal_peptides.json
 
 --8<-- "_formats/signal_peptides.md"
+
+### modified_residues.json
+
+--8<-- "_formats/modified_residues.md"
 
 ### Prepared structures
 

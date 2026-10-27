@@ -13,6 +13,7 @@ Sources, relative to data/:
   02_data/taxonomy.json                       NCBI Taxonomy lineage of the organisms (2i)
   02_data/activities.json                     reported substrates, oxidised positions and
                                               the papers reporting them (2j)
+  03_preparation/modified_residues.json       modified residues of the deposited chain (3f)
   04_alignment/aligned/<struct_id>.pdb        structure and sequence (4)
   04_alignment/alignment.fasta                aligned sequence (4)
   05_dssp_sasa/sasa.json                      SASA and relative SASA per residue (5a)
@@ -119,6 +120,12 @@ def brace_motifs_json(site):
     return json.dumps(motifs) if motifs else None
 
 
+def modified_residues_json(entry):
+    """Protein.modified_residues from a structure's modified_residues.json entry (3f): the JSON
+    list ('[]' = none), or None when the file has no entry for it."""
+    return json.dumps(entry) if entry is not None else None
+
+
 def binding_plane_json(entry):
     """Protein.binding_plane from a structure's binding_surface.json entry (7c), or None."""
     plane, copper = (entry or {}).get("plane"), (entry or {}).get("copper")
@@ -141,6 +148,7 @@ def pipeline_files(data_dir):
         "domain_annotations": structures / "domain_annotations.json",
         "taxonomy": structures / "taxonomy.json",
         "activities": structures / "activities.json",
+        "modified_residues": data_dir / "03_preparation" / "modified_residues.json",
         "aligned_dir": alignment / "aligned",
         "alignment_fasta": alignment / "alignment.fasta",
         "sasa": data_dir / "05_dssp_sasa" / "sasa.json",
@@ -306,7 +314,7 @@ class Command(BaseCommand):
         self.data = {key: self._load_json(key) for key in (
             "uniprot_ids", "uniprot_references", "disulfides", "braces", "flexibility", "sasa",
             "secondary_structure", "brace_interactions", "loops", "binding_plane",
-            "hole_hopping")}
+            "hole_hopping", "modified_residues")}
         self.data["beta_core"] = self._load_json("beta_core", part="structures")
         activities = self._load_json("activities", entries="activity records") or {}
         self.data["activities"] = activities.get("proteins", {})
@@ -627,6 +635,7 @@ class Command(BaseCommand):
             loop_regions=loop_regions,
             beta_core=beta_core,
             disulfides=disulfides,
+            modified_residues=modified_residues_json(self.data["modified_residues"].get(struct_id)),
             associated_CBMs=associated_cbms_str,
         )
         protein.save()

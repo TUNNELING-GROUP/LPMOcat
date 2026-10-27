@@ -170,7 +170,7 @@ def set_data_dir(data_dir):
     Each step writes into the folder carrying its number."""
     global DATA_DIR, CAZY_CSV, OTHER_CSV, STRUCTURES_DIR, PDB_SELECTION_CSV, UNIPROT_IDS_JSON, \
         UNIPROT_REFERENCES_JSON, DOMAIN_ANNOTATIONS_JSON, TAXONOMY_JSON, ACTIVITIES_JSON, \
-        PREPROCESSING_DIR, FILLED_DIR, \
+        PREPROCESSING_DIR, FILLED_DIR, MODIFIED_RESIDUES_JSON, \
         SIGNAL_PEPTIDES_JSON, PREPROCESSED_DIR, ALIGNMENT_DIR, ALIGNED_DIR, ALIGNMENT_FASTA, \
         ANNOTATION_DIR, BOUNDARIES_JSON, BRACE_JSON, DISTANCE_MATRIX_CSV, FLEXIBILITY_JSON, \
         CABSFLEX_DIR, PQR_DIR, SASA_JSON, SECONDARY_STRUCTURE_JSON, DSSP_JSON, DISULFIDES_JSON, \
@@ -189,6 +189,7 @@ def set_data_dir(data_dir):
     PREPROCESSING_DIR = os.path.join(data_dir, "03_preparation")
     FILLED_DIR = os.path.join(PREPROCESSING_DIR, "filled")
     SIGNAL_PEPTIDES_JSON = os.path.join(PREPROCESSING_DIR, "signal_peptides.json")
+    MODIFIED_RESIDUES_JSON = os.path.join(PREPROCESSING_DIR, "modified_residues.json")
     PREPROCESSED_DIR = os.path.join(PREPROCESSING_DIR, "preprocessed")
     ALIGNMENT_DIR = os.path.join(data_dir, "04_alignment")
     ALIGNED_DIR = os.path.join(ALIGNMENT_DIR, "aligned")
@@ -1206,6 +1207,30 @@ def _signal_peptide_starts(rows, domain_annotations, manual):
     return starts, set(numbers)
 
 
+def _save_modified_residues(rows):
+    """3f: modified_residues.json, {struct_id: [{residue, name, parent}]} for every preprocessed
+    structure ([] = none, e.g. every model): the modified amino acids of the deposited chain
+    that are still in the preprocessed structure (an N-terminal trim can remove some)."""
+    from preprocess_structures import _atom_residues, modified_residues
+
+    records = {}
+    for row in rows:
+        struct_id = row.selected_pdb
+        out_path = os.path.join(PREPROCESSED_DIR, f"{struct_id}.pdb")
+        if not os.path.exists(out_path):
+            continue
+        downloaded = _downloaded_structure(struct_id)
+        found = modified_residues(downloaded, _chain(row)) if downloaded else []
+        with open(out_path) as f:
+            kept = {number for number, _ in _atom_residues(f.readlines())}
+        records[struct_id] = [m for m in found if m["residue"] in kept]
+    with open(MODIFIED_RESIDUES_JSON, "w") as f:
+        json.dump(records, f, indent=1)
+    counts = Counter(m["name"] for found in records.values() for m in found)
+    print(f"  3f: modified residues in {sum(bool(v) for v in records.values())} structures "
+          f"({', '.join(f'{name} {n}' for name, n in counts.most_common()) or 'none'}) -> {MODIFIED_RESIDUES_JSON}")
+
+
 def step_prepare():
     """3a-3i: one clean single-chain PDB file per selected structure, made from the
     MODELLER-rebuilt structure where there is one (see preprocess_structures.py)."""
@@ -1260,6 +1285,7 @@ def step_prepare():
         n_metal += bool(metal)
 
     _remove_stale(PREPROCESSED_DIR, done, ".pdb")
+    _save_modified_residues(rows)
     print(f"\n  {len(done)} structures preprocessed ({len(rebuilt)} with rebuilt loops, "
           f"{n_metal} with an active-site metal) -> {PREPROCESSED_DIR}/")
     if len(done) < len(rows):

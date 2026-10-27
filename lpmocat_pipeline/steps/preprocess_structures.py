@@ -11,7 +11,8 @@ calculation after it use:
   3c  keep the first model (NMR ensembles)
   3d  keep the selected chain
   3e  keep the first alternate conformer of each residue
-  3f  rename modified residues to their standard parent (HIC -> HIS)
+  3f  rename modified residues to their standard parent (HIC -> HIS); which residues were
+      modified in the deposited chain is kept in modified_residues.json (modified_residues())
   3g  remove waters, ligands and all ions except the active-site metal
   3h  trim the N-terminus to the brace histidine His-1: a curated first residue, else the
       UniProt annotation, else the end of the SignalP 6 signal peptide (models), else the
@@ -306,6 +307,32 @@ def rename_modified_residues(lines):
                 renamed[resname] = (parent, renamed.get(resname, (parent, 0))[1] + 1)
         out.append(line)
     return out, renamed
+
+
+def modified_residues(path, chain_id=None):
+    """3f: the modified amino acids of the deposited chain (first model, chain_id, first
+    alternate conformer), as [{'residue': number, 'name': 'HIC', 'parent': 'HIS'}] in chain
+    order -- e.g. the N-methylated N-terminal His of fungal LPMOs expressed in a fungal host.
+    Read from the downloaded entry, since 3a rebuilds a structure from renamed records and the
+    renamed file no longer shows them. Empty for a model."""
+    lines = keep_first_altloc(select_chain(first_model(read_structure(path))[0], chain_id)[0])
+    residue_range = _atom_residue_range(lines)
+    out, seen = [], set()
+    for line in lines:
+        if line[:6] != "HETATM" or not _in_chain(line, residue_range):
+            continue
+        resname = line[17:20].strip()
+        try:
+            number = int(line[22:26])
+        except ValueError:
+            continue
+        if resname in STANDARD_RESIDUES or number in seen:
+            continue
+        parent = lookup_parent_residue(resname)
+        if parent:
+            seen.add(number)
+            out.append({"residue": number, "name": resname, "parent": parent})
+    return out
 
 
 def active_site_metal(lines, max_dist=3.0):
