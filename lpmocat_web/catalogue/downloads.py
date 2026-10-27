@@ -63,10 +63,11 @@ def release_label():
 PROTEIN_HEADER = [
     'protein', 'other_names', 'family', 'organism', 'taxonomy', 'structure', 'structure_source',
     'uniprot', 'uniparc', 'ec_numbers', 'substrates', 'regioselectivity',
-    'active_site_metal', 'n_his', 'internal_his', 'n_his_motif', 'internal_his_motif',
+    'active_site_metal', 'n_his_methylated', 'modified_residues', 'n_his', 'internal_his', 'n_his_motif', 'internal_his_motif',
     'second_sphere_motif', 'shielding_residue', 'binding_aromatics', 'cbms', 'sequence_length',
     'catalytic_domain_length', 'catalytic_domain_end', 'mass_kda', 'catalytic_domain_mass_kda',
-    'disulfide_bonds', 'references',
+    'catalytic_domain_net_charge', 'catalytic_domain_surface_net_charge', 'catalytic_domain_pi',
+    'catalytic_domain_gravy', 'catalytic_domain_n_glycosylation_sequons', 'disulfide_bonds', 'references',
 ]
 
 
@@ -100,6 +101,7 @@ def protein_rows(proteins, group_of=None):
         except (ValueError, TypeError):
             pass
         masses = views._protein_masses(p)
+        props = views._property_values(p)
         record = activity_data(p)
         references_html, _ = views._format_references(p, activity_references(record))
         lineage = _lineage(p.organism) if p.organism else None
@@ -117,6 +119,8 @@ def protein_rows(proteins, group_of=None):
             '; '.join(s.name for s in p.substrate.all()),
             regioselectivity_label(r.name for r in p.regioselectivity.all()),
             p.metal or '',
+            props['n_his_methylated'] or '',
+            '; '.join(f"{m['name']}{m['residue']} ({m['parent']})" for m in props['modified_residues'] or []),
             brace[0] if len(brace) > 0 else '',
             brace[1] if len(brace) > 1 else '',
             site.get('n_his', {}).get('text', ''),
@@ -130,6 +134,8 @@ def protein_rows(proteins, group_of=None):
             views._domain_boundaries.get(p.selected_structure or '', {}).get('end_residue') or '',
             views._kda_text(masses[1]),
             views._kda_text(masses[0]),
+            *('' if props[key] is None else props[key] for key in ('net_charge', 'surface_charge', 'pi', 'gravy')),
+            '' if props['sequons'] is None else '; '.join(views._sequon_text(s) for s in props['sequons']),
             '; '.join(disulfides),
             _references_text(references_html),
         ])
@@ -210,11 +216,14 @@ def readme_text(title, proteins, extra_lines=(), built=False):
         'proteins.csv              one row per protein: family, organism and taxonomy, structure and its',
         '                          source, UniProt/UniParc, EC numbers, substrates and regioselectivity',
         '                          (as papers report them, else from the EC numbers), active-site metal,',
+        '                          N-His methylation and modified residues of the PDB entry (the',
+        '                          structures have their parent residues),',
         '                          brace histidines (residue numbers) and their motifs, second-sphere',
         '                          motif, shielding residue, aromatic binding residues (Phe, Trp, Tyr',
         '                          and His on the binding surface, the brace left out, with their',
-        '                          loops), CBMs, lengths and masses, disulfide bonds',
-        '                          and references',
+        '                          loops), CBMs, lengths and masses, net charge, surface net charge,',
+        '                          pI and GRAVY of the catalytic domain, its N-glycosylation sequons',
+        '                          (N-X-S/T, potential sites only), disulfide bonds and references',
         'substrate_evidence.csv    every activity claim (substrate, form, result, oxidised positions)',
         '                          with its source (CAZy, Swiss-Prot, BRENDA, literature) and papers',
         'residues_catalytic_domain.csv, residues_full_length.csv',

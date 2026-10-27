@@ -103,7 +103,7 @@
             <div class="cmp-card-head">
                 <div>
                     <h2 class="cmp-card-title">Proteins</h2>
-                    <div class="cmp-card-sub">Untick a protein to hide it in the 3D viewer. Click a column header to sort.</div>
+                    <div class="cmp-card-sub">Untick a protein to hide it in the 3D viewer. Click a column header to sort; hover it for its definition. <span class="hover-hint">Dotted underlined</span> values show details on hover.</div>
                 </div>
                 <div class="cmp-card-tools">
                     <label for="rowsPerPage">Show</label>
@@ -115,7 +115,17 @@
                         <option value="all">All</option>
                     </select>
                     <span id="tableInfo">entries</span>
-                    <button type="button" class="exportBtn" onclick="downloadTableAsCSV()">Download table (.csv)</button>
+                    <details class="column-picker" id="columnPicker">
+                        <summary class="exportBtn" title="Choose the columns to show">Columns</summary>
+                        <div class="column-picker-panel">
+                            <div class="column-picker-actions">
+                                <button type="button" data-columns="all">Show all</button>
+                                <button type="button" data-columns="none">Hide all</button>
+                            </div>
+                            <div class="column-picker-list" id="columnPickerList"></div>
+                        </div>
+                    </details>
+                    <button type="button" class="exportBtn" onclick="downloadTableAsCSV()" title="The table as shown: the visible columns of the ticked proteins">Download table (.csv)</button>
                     <button type="button" class="exportBtn" onclick="downloadActivitiesAsCSV()" title="Every reported substrate and oxidised position with its papers, including the substrates tested without activity">Substrate evidence (.csv)</button>
                     <button type="button" class="exportBtn exportBtn-all" onclick="window.location.href='{% url 'download_comparison' %}?ids={{ protein_codes_list|join:','|urlencode }}{% if groups_param %}&amp;groups={{ groups_param|urlencode }}{% endif %}'" title="Everything about these proteins in one zip: the table, the substrate evidence, the per-residue data and the alignment (catalytic domain and full length), the PDB structures, and a README with the data release">Download comparison (.zip)</button>
                 </div>
@@ -124,61 +134,85 @@
             <table class="catalog-table" id="proteinTable">
                 <tr>
                     <th></th>
-                    <th class="sortable" data-column="name" onclick="sortTable(1)">
+                    <th class="sortable" data-column="name" onclick="sortTable(this.cellIndex)">
                         Name <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="clade" onclick="sortTable(2)">
+                    <th class="sortable" data-column="clade" onclick="sortTable(this.cellIndex)">
                         Clade <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="catalytic_length" onclick="sortTable(3)">
+                    <th class="sortable" data-column="catalytic_length" onclick="sortTable(this.cellIndex)">
                         CD length <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="sequence_length" onclick="sortTable(4)">
+                    <th class="sortable" data-column="sequence_length" onclick="sortTable(this.cellIndex)">
                         Total length <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="catalytic_mass" onclick="sortTable(5)" title="Polypeptide mass of the catalytic domain, from the structure sequence (no glycans or metal)">
+                    <th class="sortable" data-column="catalytic_mass" onclick="sortTable(this.cellIndex)" title="Polypeptide mass of the catalytic domain, from the structure sequence (no glycans or metal)">
                         CD mass (kDa) <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="sequence_mass" onclick="sortTable(6)" title="Polypeptide mass of the whole structure sequence (no glycans or metal)">
+                    <th class="sortable" data-column="sequence_mass" onclick="sortTable(this.cellIndex)" title="Polypeptide mass of the whole structure sequence (no glycans or metal)">
                         Total mass (kDa) <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="structure" onclick="sortTable(7)">
+                    <th class="sortable" data-column="net_charge" onclick="sortTable(this.cellIndex)" title="Net charge of the catalytic domain: the sum of the PDB2PQR (AMBER) atom charges, standard protonation states, copper excluded">
+                        CD net charge (e) <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="surface_charge" onclick="sortTable(this.cellIndex)" title="Net charge of the surface-exposed residues of the catalytic domain (relative SASA &ge; 25 %)">
+                        CD surface charge (e) <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="pi" onclick="sortTable(this.cellIndex)" title="Isoelectric point of the catalytic domain, estimated from its sequence (Biopython ProtParam): the pH at which its net charge would be zero">
+                        CD pI <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="gravy" onclick="sortTable(this.cellIndex)" title="GRAVY of the catalytic domain: the mean Kyte–Doolittle hydropathy of its residues; below 0 = hydrophilic">
+                        CD GRAVY <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="disulfides" onclick="sortTable(this.cellIndex)" title="Disulfide bonds with both Cys in the catalytic domain (S–S &le; 3.0 &Aring;); hover for the pairs and the regions they join">
+                        Disulfide bonds <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="sequons" onclick="sortTable(this.cellIndex)" title="N-glycosylation sequons in the catalytic domain: Asn-X-Ser/Thr with X not Pro. Potential sites only, read from the sequence; whether a glycan is attached depends on the organism and the expression host (bacteria do not N-glycosylate). Hover for each Asn, its region and relative SASA">
+                        N-glyc. sequons <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="structure" onclick="sortTable(this.cellIndex)">
                         3D structure <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="uniprot" onclick="sortTable(8)">
+                    <th class="sortable" data-column="uniprot" onclick="sortTable(this.cellIndex)">
                         UniProt <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="organism" onclick="sortTable(9)">
+                    <th class="sortable" data-column="organism" onclick="sortTable(this.cellIndex)">
                         Organism <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="taxonomy" onclick="sortTable(10)" title="NCBI Taxonomy lineage above the species">
+                    <th class="sortable" data-column="taxonomy" onclick="sortTable(this.cellIndex)" title="NCBI Taxonomy lineage above the species">
                         Taxonomy <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="ec_numbers" onclick="sortTable(11)" title="The EC numbers CAZy, Swiss-Prot and BRENDA give this protein; ⚠ when they differ. Hover a number for its sources, and its superscripts for the papers.">
+                    <th class="sortable" data-column="ec_numbers" onclick="sortTable(this.cellIndex)" title="The EC numbers CAZy, Swiss-Prot and BRENDA give this protein; ⚠ when they differ. Hover a number for its sources, and its superscripts for the papers.">
                         EC Number <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="substrates" onclick="sortTable(12)" title="Substrates with activity reported in the literature (CAZy's EC numbers, Swiss-Prot, BRENDA); the superscripts are the papers in the References column. Substrates tested without activity are in the hover text and in the substrate evidence CSV. A protein no source reports on shows the substrates of its EC numbers.">
+                    <th class="sortable" data-column="substrates" onclick="sortTable(this.cellIndex)" title="Substrates with activity reported in the literature (CAZy's EC numbers, Swiss-Prot, BRENDA); the superscripts are the papers in the References column. Substrates tested without activity are in the hover text and in the substrate evidence CSV. A protein no source reports on shows the substrates of its EC numbers.">
                         Substrates <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="regioselectivity" onclick="sortTable(13)" title="C1, C4 or C1/C4: the oxidised positions the papers report (with their papers), else those the EC numbers define (IUBMB).">
+                    <th class="sortable" data-column="regioselectivity" onclick="sortTable(this.cellIndex)" title="C1, C4 or C1/C4: the oxidised positions the papers report (with their papers), else those the EC numbers define (IUBMB).">
                         Regioselectivity <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="associated_CBMs" onclick="sortTable(14)">
+                    <th class="sortable" data-column="associated_CBMs" onclick="sortTable(this.cellIndex)">
                         Associated CBMs <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="second_sphere" onclick="sortTable(15)" title="Hydrogen-bonding residues from the one holding the Gln/Glu to the axial Tyr/Phe, with the number of residues between them (X8); hover a motif for its residues">
+                    <th class="sortable" data-column="metal" onclick="sortTable(this.cellIndex)" title="The metal bound at the histidine brace in the structure; – for a model or an apo structure">
+                        Active-site metal <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="n_his_methylated" onclick="sortTable(this.cellIndex)" title="Whether the PDB entry has the N-terminal His as HIC (N-methylated His, made by fungal expression hosts). The catalogue's structure has a plain His either way. – for a model: modifications are not predicted">
+                        N-His methylated <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-column="second_sphere" onclick="sortTable(this.cellIndex)" title="Hydrogen-bonding residues from the one holding the Gln/Glu to the axial Tyr/Phe, with the number of residues between them (X8); hover a motif for its residues">
                         Second-sphere motif <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="shielding" onclick="sortTable(16)" title="The residue over the copper on its solvent side, opposite the axial Tyr/Phe (an atom within 4.5 &Aring; of the copper), e.g. the conserved Ala of AA10s; None (open) = the copper is open there">
+                    <th class="sortable" data-column="shielding" onclick="sortTable(this.cellIndex)" title="The residue over the copper on its solvent side, opposite the axial Tyr/Phe (an atom within 4.5 &Aring; of the copper), e.g. the conserved Ala of AA10s; None (open) = the copper is open there">
                         Shielding residue <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="n_his" onclick="sortTable(17)" title="Motif after the N-terminal His of the histidine brace (Xn = n residues of any kind); hover for the residues">
+                    <th class="sortable" data-column="n_his" onclick="sortTable(this.cellIndex)" title="Motif after the N-terminal His of the histidine brace (Xn = n residues of any kind); hover for the residues">
                         N-His motif <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="internal_his" onclick="sortTable(18)" title="Motif after the internal His of the histidine brace; hover for the residues">
+                    <th class="sortable" data-column="internal_his" onclick="sortTable(this.cellIndex)" title="Motif after the internal His of the histidine brace; hover for the residues">
                         Internal-His motif <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="binding_aromatics" onclick="sortTable(19)" title="Phe, Trp, Tyr and His on the binding surface (the residues the plane at the copper face touches), the brace histidines left out; hover for each residue's loop">
+                    <th class="sortable" data-column="binding_aromatics" onclick="sortTable(this.cellIndex)" title="Phe, Trp, Tyr and His on the binding surface (the residues the plane at the copper face touches), the brace histidines left out; hover for each residue's loop">
                         Aromatic binding residues <span class="sort-indicator"></span>
                     </th>
                     <th data-column="references">
@@ -194,14 +228,22 @@
                     <td>{{ row.sequence_length }}</td>
                     <td>{{ row.catalytic_mass }}</td>
                     <td>{{ row.sequence_mass }}</td>
-                    <td><span class="struct-col" data-selected="{{ row.selected_structure|default_if_none:'' }}" data-pdb="{{ row.pdb_codes|default_if_none:'' }}"></span></td>
+                    <td>{{ row.properties.net_charge.text }}</td>
+                    <td>{{ row.properties.surface_charge.text }}</td>
+                    <td>{{ row.properties.pi.text }}</td>
+                    <td>{{ row.properties.gravy.text }}</td>
+                    <td><span title="{{ row.properties.disulfides.title }}">{{ row.properties.disulfides.text }}</span></td>
+                    <td><span title="{{ row.properties.sequons.title }}">{{ row.properties.sequons.text }}</span></td>
+                    <td class="col-structure"><span class="struct-col" data-selected="{{ row.selected_structure|default_if_none:'' }}" data-pdb="{{ row.pdb_codes|default_if_none:'' }}"></span></td>
                     <td><span class="uniprot-col" data-uniprot="{{ row.uniprot|default_if_none:'' }}" data-notes="{{ row.uniprot_notes }}" data-uniparc="{{ row.uniparc }}"></span></td>
-                    <td>{{ row.organism }}</td>
+                    <td class="col-organism">{{ row.organism }}</td>
                     <td class="taxonomy-cell"><span class="taxonomy-col" data-lineage="{{ row.taxonomy }}">{{ row.taxonomy }}</span></td>
                     <td>{% if row.ec_cells %}<span class="ec-list">{% for cell in row.ec_cells %}<span class="cell-item"><span title="{{ cell.title }}">{{ cell.text }}</span>{% for r in cell.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}</span>{% if not forloop.last %}, {% endif %}{% endfor %}{% if row.ec_differs %} <span class="actWarn" title="the sources give different EC numbers for this protein; hover each number to see which">&#9888;</span>{% endif %}</span>{% else %}{{ row.ec_numbers }}{% endif %}</td>
                     <td>{% if row.reported_substrates %}<span class="substrates-list">{% for sub in row.reported_substrates %}<span class="sub-item"><span title="{{ sub.title }}">{{ sub.name }}</span>{% if sub.conflict %}<span class="actWarn" title="another paper reports no activity on this substrate — hover the substrate for both">&#9888;</span>{% endif %}{% for r in sub.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>
                     <td>{% if row.regio_refs %}<span title="{{ row.regio_refs.title }}">{{ row.regioselectivity }}</span>{% for r in row.regio_refs.refs %}{% if not forloop.first %}<span class="actRefSep">,</span>{% endif %}<a class="actRef" href="#" title="{{ r.label }}" onclick="return showReference(this, {{ r.n }});">{{ r.n }}</a>{% endfor %}{% elif row.regioselectivity == 'Unknown' %}<span title="no paper in the sources gives the oxidised position, and the EC number does not define one">{{ row.regioselectivity }}</span>{% else %}<span title="from the EC numbers, as the IUBMB defines them">{{ row.regioselectivity }}</span>{% endif %}</td>
                     <td>{{ row.associated_CBMs }}</td>
+                    <td><span title="{{ row.properties.metal.title }}">{{ row.properties.metal.text }}</span></td>
+                    <td><span title="{{ row.properties.n_his_methylated.title }}">{{ row.properties.n_his_methylated.text }}</span></td>
                     <td class="site-cell"><span title="{{ row.second_sphere.title }}">{{ row.second_sphere.text }}</span></td>
                     <td class="site-cell"><span title="{{ row.shielding.title }}">{{ row.shielding.text }}</span></td>
                     <td class="site-cell"><span title="{{ row.n_his.title }}">{{ row.n_his.text }}</span></td>
@@ -219,6 +261,67 @@
                 </div>
             </div>
         </section>
+        <script>
+        // "Columns": show or hide the table's columns (not the tick box or the name), remembered
+        // per browser by the headers' data-column
+        (function () {
+            const KEY = 'lpmocat.compareColumns';
+            const table = document.getElementById('proteinTable');
+            const list = document.getElementById('columnPickerList');
+            const picker = document.getElementById('columnPicker');
+            if (!table || !list) return;
+            const headers = Array.from(table.rows[0].cells);
+            let hidden = new Set();
+            try { hidden = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (e) { /* no storage */ }
+
+            function apply() {
+                headers.forEach((th, i) => {
+                    const column = th.getAttribute('data-column');
+                    if (i < 2 || !column) return;
+                    const display = hidden.has(column) ? 'none' : '';
+                    Array.from(table.rows).forEach(row => { if (row.cells[i]) row.cells[i].style.display = display; });
+                });
+                list.querySelectorAll('input').forEach(box => { box.checked = !hidden.has(box.value); });
+                try { localStorage.setItem(KEY, JSON.stringify([...hidden])); } catch (e) { /* no storage */ }
+                if (typeof updateFloatingHScroll === 'function') updateFloatingHScroll();
+            }
+
+            headers.forEach((th, i) => {
+                const column = th.getAttribute('data-column');
+                if (i < 2 || !column) return;
+                const label = document.createElement('label');
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.value = column;
+                box.addEventListener('change', () => {
+                    if (box.checked) hidden.delete(column); else hidden.add(column);
+                    apply();
+                });
+                label.append(box, ' ' + th.textContent.trim());
+                list.appendChild(label);
+            });
+            picker.querySelectorAll('[data-columns]').forEach(button => button.addEventListener('click', () => {
+                hidden = button.dataset.columns === 'all' ? new Set()
+                    : new Set(Array.from(list.querySelectorAll('input'), box => box.value));
+                apply();
+            }));
+            // the panel is fixed under its button (the table card would clip it); close on a click
+            // elsewhere or when the page scrolls
+            const panel = picker.querySelector('.column-picker-panel');
+            const summary = picker.querySelector('summary');
+            picker.addEventListener('toggle', () => {
+                if (!picker.open) return;
+                const r = summary.getBoundingClientRect();
+                panel.style.top = (r.bottom + 4) + 'px';
+                panel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8)) + 'px';
+            });
+            document.addEventListener('click', event => {
+                if (picker.open && !picker.contains(event.target)) picker.open = false;
+            });
+            window.addEventListener('scroll', () => { if (picker.open) picker.open = false; }, { passive: true });
+            apply();
+        })();
+        </script>
 
         <div class="ViewerAndPlotsContainer">
             <!-- 3D Viewer Section -->
@@ -281,7 +384,7 @@
                                 <label for="coloringSelect" class="sr-only">Color residues by</label>
                                 <select id="coloringSelect" class="viewerSelect" onchange="if(window.viewerInstance) applyMolstarColoring(this.value, {{protCount}});">
                                     <option value="none">None (white)</option>
-                                    <option value="sequence" selected title="The Sequence plot's colours: residue types (charged, aromatic, sulphur-containing) and the active-site roles (brace, second sphere, motifs)">Amino-acid groups</option>
+                                    <option value="sequence" selected title="The Sequence plot's colours: residue types (charged, aromatic, sulphur-containing) and the active-site roles (brace, second sphere, motifs); in 3D also the Asn of the N-glycosylation sequons (dark slate)">Amino-acid groups</option>
                                     <option value="flexibility">Flexibility</option>
                                     <option value="hydrophobicity">Hydrophobicity</option>
                                     <option value="charge">Charge</option>
@@ -314,6 +417,7 @@
                                     <label class="toggle-btn" title="The residues a plane laid on the copper face touches"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingSurface" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Binding surface</label>
                                     <label class="toggle-btn" title="Phe, Trp, Tyr and His on the binding surface (the brace histidines left out)"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingAromatics" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Aromatic binding residues</label>
                                     <label class="toggle-btn" title="Both cysteines of every disulfide bond"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="disulfides" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Disulfide bonds</label>
+                                    <label class="toggle-btn" title="The Asn of every N-X-S/T sequon (X not Pro) in the catalytic domain: potential N-glycosylation sites, read from the sequence (bacteria do not N-glycosylate)"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="sequons" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> N-glycosylation sequons</label>
                                     <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="holeHopping" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Hole-hopping residues</label>
                                     {% if stick_loops %}<span class="toggle-group-label">Loops</span>{% endif %}
                                     {% for ln in stick_loops %}<label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="loop" data-loop="{{ ln }}" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> {{ ln }}</label>{% endfor %}
@@ -506,6 +610,7 @@
     {{ binding_planes|json_script:"bindingPlanes" }}
     {{ protein_groups|json_script:"proteinGroups" }}
     {{ binding_aromatic_numbers|json_script:"bindingAromaticNumbers" }}
+    {{ sequon_numbers|json_script:"sequonNumbers" }}
     {{ protein_codes_list|json_script:"protein-codes-json" |safe}}
     {# hydrophobicity scales are no longer inlined — fetched on demand via changeHydrophobicityScale() #}
     {{ export_data|json_script:"exportData" }}
@@ -1792,8 +1897,9 @@
             const headerRow = document.querySelector('.catalog-table tr');
             if (headerRow) {
                 const headerCells = headerRow.querySelectorAll('th');
-                // Skip the checkbox column
+                // Skip the checkbox column and the columns hidden with "Columns"
                 for (let i = 1; i < headerCells.length; i++) {
+                    if (headerCells[i].style.display === 'none') continue;
                     headers.push(headerCells[i].textContent.trim());
                 }
             }
@@ -1812,6 +1918,7 @@
                     // Skip the checkbox column
                     for (let i = 1; i < cells.length; i++) {
                         const cell = cells[i];
+                        if (cell.style.display === 'none') continue;
                         let cellText = '';
                         
                         // Handle special cases for expandable columns
@@ -2091,7 +2198,8 @@
             
             // Get column data type
             const columnType = header.getAttribute('data-column');
-            const isNumeric = ['sequence_length', 'catalytic_length', 'sequence_mass', 'catalytic_mass'].includes(columnType);
+            const isNumeric = ['sequence_length', 'catalytic_length', 'sequence_mass', 'catalytic_mass',
+                               'net_charge', 'surface_charge', 'pi', 'gravy', 'disulfides', 'sequons'].includes(columnType);
             const isClade = columnType === 'clade';
             
             // Helper function to extract numeric value from clade (e.g., "AA9" -> 9, "AA10" -> 10)
@@ -2171,8 +2279,10 @@
                 
                 // Handle numeric sorting
                 if (isNumeric) {
-                    const aNum = parseFloat(aValue) || 0;
-                    const bNum = parseFloat(bValue) || 0;
+                    // an empty cell (not computed) goes last either way, not to 0
+                    const aNum = parseFloat(aValue);
+                    const bNum = parseFloat(bValue);
+                    if (isNaN(aNum) || isNaN(bNum)) return isNaN(aNum) - isNaN(bNum);
                     return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
                 }
                 

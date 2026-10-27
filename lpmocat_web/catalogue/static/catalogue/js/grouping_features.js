@@ -127,6 +127,8 @@
             { label: 'Side chains H-bonded to the brace', part: 'brace', tag: 'structure', unit: 'residues', get: p => fx(p, 'brace_hbonds') },
             { label: 'Residues π-stacked on the brace', part: 'brace', tag: 'structure', unit: 'residues', get: p => fx(p, 'brace_stacking') },
             { label: 'Cation–π contacts to the brace', part: 'brace', tag: 'structure', unit: 'residues', get: p => fx(p, 'brace_cation_pi') },
+            // from the PDB entry (HIC), none for a model
+            { label: 'N-His methylated', part: 'PDB entry', tag: 'structure', kind: 'cat', get: p => fx(p, 'n_his_methylated') },
             // the alignment columns the residues of the hole-hopping paths sit in, as a set: two
             // proteins differ by 1 - Jaccard (the share of their columns they do not share); with
             // the residue, a column counts as shared only when both have the same residue there

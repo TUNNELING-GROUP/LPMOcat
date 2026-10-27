@@ -351,6 +351,29 @@ def brace_numbers(histidine_brace):
     return tuple(int(n) for n in re.findall(r'-?\d+', histidine_brace or ''))
 
 
+def modified_residues(protein):
+    """Protein.modified_residues as a list ([{'residue', 'name', 'parent'}]), or None when not
+    recorded."""
+    try:
+        return json.loads(protein.modified_residues) if protein.modified_residues else None
+    except (TypeError, ValueError):
+        return None
+
+
+def n_his_methylation(protein):
+    """'yes' when the deposited PDB entry has the N-His as HIC (N-methylated His, made by
+    fungal expression hosts), 'no' when it has a plain His; None for a model (a prediction
+    shows no modification) or when not recorded. The catalogue's structure has His either way
+    (pipeline step 3f)."""
+    found = modified_residues(protein)
+    if found is None or structure_source(protein.selected_structure) != 'PDB':
+        return None
+    n_his = (brace_numbers(protein.histidine_brace) or (None,))[0]
+    if n_his is None:
+        return None
+    return 'yes' if any(m['residue'] == n_his and m['name'] == 'HIC' for m in found) else 'no'
+
+
 def binding_aromatics(sequence, residue_numbers, binding_surface, loop_regions=None, beta_core=None,
                       brace=()):
     """The aromatic residues (Phe, Trp, Tyr, His; not the brace histidines) among the
@@ -487,7 +510,7 @@ def protein_structural_features(protein, catalytic_end, domain):
     # populate_db stores no contacts as an empty field: with a brace, that is 0 contacts, not unknown
     contacts = protein.histidine_brace_interactions or ('{}' if protein.histidine_brace else None)
     key = (protein.pk, catalytic_end, domain, protein.disulfides, protein.loop_regions, protein.beta_core,
-           protein.histidine_brace,
+           protein.histidine_brace, protein.modified_residues, protein.selected_structure,
            protein.binding_surface, len(sasa), hash(sasa[-2000:]), contacts, hash(paths),
            hash(protein.aligned_sequence or ''))
     if key not in _structural:
@@ -497,6 +520,8 @@ def protein_structural_features(protein, catalytic_end, domain):
             protein.sequence, domain, [row[0] for row in read_sasa_file(sasa)], catalytic_end,
             protein.disulfides, protein.loop_regions, protein.beta_core, protein.binding_surface, contacts,
             protein.aligned_sequence, paths, brace_numbers(protein.histidine_brace))
+        # from the PDB entry, not the structure: 'yes' / 'no' (n_his_methylation), None for a model
+        _structural[key]['n_his_methylated'] = n_his_methylation(protein)
     return _structural[key]
 
 

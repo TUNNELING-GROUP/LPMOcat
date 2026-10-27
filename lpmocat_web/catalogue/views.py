@@ -971,7 +971,7 @@ def _catalogue_fingerprint():
         'pk', 'protein_code', 'protein_name', 'selected_structure', 'clade__name', 'organism__name',
         'organism__kingdom', 'organism__lineage', 'associated_CBMs', 'sequence', 'aligned_sequence',
         'second_sphere_motif', 'brace_motifs', 'loop_regions', 'activities', 'sequence_length',
-        'disulfides', 'beta_core', 'binding_surface', 'hh_length',
+        'disulfides', 'beta_core', 'binding_surface', 'modified_residues', 'hh_length',
         'pdb_length', 'pqr_length', 'sasa_length'))
     add(Protein.substrate.through.objects.order_by('pk').values_list('protein_id', 'substrate__name'))
     add(Protein.regioselectivity.through.objects.order_by('pk')
@@ -1074,6 +1074,116 @@ def _binding_aromatics_cell(protein):
         return {'text': '–', 'title': 'No Phe, Trp, Tyr or His (besides the brace) on the binding surface'}
     return {'text': ', '.join(a['label'] for a in found),
             'title': ' · '.join(f"{a['label']} ({a['region']})" for a in found)}
+
+
+def _property_values(protein):
+    """The computed properties of the catalytic domain the compare table and the protein CSVs
+    show: net charge and surface net charge (e, PDB2PQR atom charges; surface = relative SASA >=
+    25 %), isoelectric point (Biopython, from the sequence), GRAVY (Kyte-Doolittle), the disulfide
+    bonds with both Cys in the domain ('Cys14–Cys33 (L2–β9)') and the active-site metal ('Cu').
+    A value that cannot be computed is None; the metal is '' without one."""
+    from .overview import _GLYCOSITE, _loop_pieces, _region_of, gravy, read_sasa_file
+    end = _domain_boundaries.get(protein.selected_structure or '', {}).get('end_residue')
+    profile = protein_residue_profile(protein, end)
+    domain = ''.join(c for c in _catalytic_masked_seq(protein) if c.isalpha()) if end is not None else ''
+    features = protein_structural_features(protein, end, domain)
+    sasa_rows = read_sasa_file(getattr(getattr(protein, 'surface_accesability', None), 'sasa_file', None) or '')
+    loops, core = _loop_pieces(protein.loop_regions), _loop_pieces(protein.beta_core)
+    # N-X-S/T sequons of the catalytic domain (X not Pro), as structural_features counts them; the
+    # SASA records list the residues in sequence order, so they give the residue numbers
+    sequons = None
+    if domain and len(sasa_rows) >= len(domain):
+        sequons = []
+        for match in _GLYCOSITE.finditer(domain):
+            i = match.start()
+            rsa = sasa_rows[i][3]
+            sequons.append({'residue': sasa_rows[i][0], 'motif': '-'.join(domain[i:i + 3]),
+                            'rsa': None if rsa != rsa else round(rsa),
+                            'region': _region_of(i + 1, loops, core)})
+    bonds = None
+    try:
+        inside = [sorted(b[:2]) for b in json.loads(protein.disulfides or 'null') or []
+                  if len(b) >= 2 and end is not None and max(b[:2]) <= end]
+    except (TypeError, ValueError):
+        inside = None
+    if inside is not None and end is not None:
+        position_of = {row[0]: i + 1 for i, row in enumerate(sasa_rows)}
+
+        def bond_text(a, b):
+            regions = (f" ({_region_of(position_of[a], loops, core)}–{_region_of(position_of[b], loops, core)})"
+                       if a in position_of and b in position_of else '')
+            return f'Cys{a}–Cys{b}{regions}'
+        bonds = [bond_text(a, b) for a, b in inside]
+    metal = (protein.metal or '').strip()
+    from .overview import modified_residues, n_his_methylation
+    return {
+        'net_charge': profile['charge']['cd'],
+        'surface_charge': profile['surface_charge']['cd'],
+        'pi': features.get('pi'),
+        'gravy': round(gravy(domain), 2) if domain else None,
+        'disulfides': bonds,
+        'sequons': sequons,
+        'bacterial': bool(protein.organism and protein.organism.kingdom == 'Bacteria'),
+        'metal': metal.capitalize() if metal else '',
+        'n_his_methylated': n_his_methylation(protein),
+        'modified_residues': modified_residues(protein),
+        'experimental': structure_source(protein.selected_structure) == 'PDB',
+    }
+
+
+def _sequon_text(sequon):
+    """'Asn45 (N-K-T; L2, RSA 42 %)'."""
+    rsa = '' if sequon['rsa'] is None else f", RSA {sequon['rsa']} %"
+    return f"Asn{sequon['residue']} ({sequon['motif']}; {sequon['region']}{rsa})"
+
+
+def _property_cells(protein):
+    """_property_values as the compare table's cells, each {'text', 'title'}."""
+    values = _property_values(protein)
+
+    def number(value, digits):
+        return '' if value is None else f'{value:.{digits}f}'
+    bonds = values['disulfides']
+    sequons = values['sequons']
+    if sequons is None:
+        sequon_cell = {'text': '', 'title': ''}
+    else:
+        title = ' · '.join(_sequon_text(s) for s in sequons) or 'No N-X-S/T sequon in the catalytic domain'
+        if values['bacterial'] and sequons:
+            title += ' — potential sites only: bacteria do not N-glycosylate'
+        sequon_cell = {'text': str(len(sequons)), 'title': title}
+    return {
+        'sequons': sequon_cell,
+        'net_charge': {'text': number(values['net_charge'], 1), 'title': ''},
+        'surface_charge': {'text': number(values['surface_charge'], 1), 'title': ''},
+        'pi': {'text': number(values['pi'], 2), 'title': ''},
+        'gravy': {'text': number(values['gravy'], 2), 'title': ''},
+        'disulfides': ({'text': '', 'title': ''} if bonds is None else
+                       {'text': str(len(bonds)), 'title': ' · '.join(bonds) or 'No disulfide bond in the catalytic domain'}),
+        'n_his_methylated': _methylation_cell(values),
+        'metal': ({'text': values['metal'], 'title': 'Metal bound at the histidine brace in the structure'}
+                  if values['metal'] else
+                  {'text': '–', 'title': 'No metal at the brace (a model or an apo structure); '
+                                         'the copper position is taken from the brace nitrogens'}),
+    }
+
+
+def _methylation_cell(values):
+    """The compare table's N-His methylation cell: Yes / No from the PDB entry, '–' for a model;
+    the hover names every modified residue of the entry and says the structure has the parent."""
+    state, found = values['n_his_methylated'], values['modified_residues'] or []
+    replaced = ', '.join(f"{m['name']}{m['residue']}" for m in found)
+    note = (f"Modified residues in the PDB entry: {replaced}, shown here as "
+            f"{', '.join(sorted({m['parent'].capitalize() for m in found}))}. " if found else '')
+    if state == 'yes':
+        return {'text': 'Yes', 'title': note + 'The N-His is N-methylated (HIC), as made by fungal '
+                                              'expression hosts; the catalogue structure has a plain His'}
+    if state == 'no':
+        return {'text': 'No', 'title': note + 'The PDB entry has an unmodified N-His; methylation '
+                                              'depends on the expression host'}
+    if values['experimental']:
+        return {'text': '', 'title': ''}
+    return {'text': '–', 'title': 'A predicted model: modifications are not predicted'}
 
 
 def _kda_text(value):
@@ -1366,6 +1476,7 @@ def compare_proteins(request, protein_ids):
             # second-sphere motif, shielding residue, brace histidine motifs (pipeline 8c-8e)
             **_site_cells(protein),
             'binding_aromatics': _binding_aromatics_cell(protein),
+            'properties': _property_cells(protein),
             'associated_CBMs': clean_value(protein.associated_CBMs),
             'references': references_html,
             # step 2j: what the papers report, citing the row's reference numbers
@@ -1395,6 +1506,9 @@ def compare_proteins(request, protein_ids):
                      # residue numbers of the aromatic binding residues, for "Show as sticks"
                      'binding_aromatic_numbers': [[a['residue'] for a in (protein_binding_aromatics(p) or [])]
                                                   for p in protein_records],
+                     # residue numbers of the Asn of the N-glycosylation sequons, for "Show as sticks"
+                     'sequon_numbers': [[s['residue'] for s in (_property_values(p)['sequons'] or [])]
+                                        for p in protein_records],
                      # the groups ({name, color, codes, ungrouped?}) and each protein's group
                      # index, for the page's script; groups_param for the links that keep them
                      'protein_groups': {'groups': all_groups,

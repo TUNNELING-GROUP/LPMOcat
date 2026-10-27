@@ -1256,6 +1256,17 @@ function bindingAromaticNumbers(){
     }
     return window._bindingAromaticNumbers;
 }
+// The sequon Asn in the "Amino-acid groups" colouring: dark slate, OKLab dE >= 15.8 from every
+// other colour of it under protanopia and deuteranopia (>= 19.1 in normal vision)
+const SEQUON_COLOR = {r: 55, g: 71, b: 79};
+// Residue numbers of the Asn of each protein's N-glycosylation sequons (json_script "sequonNumbers")
+function sequonNumbers(){
+    if (!window._sequonNumbers) {
+        try { window._sequonNumbers = JSON.parse(document.getElementById('sequonNumbers').textContent) || []; }
+        catch (e) { window._sequonNumbers = []; }
+    }
+    return window._sequonNumbers;
+}
 function groupColorOf(proteinIndex){
     const data = comparisonGroups();
     const group = data.groups[data.of[proteinIndex]];
@@ -1284,6 +1295,7 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
     const showBindingSurface = overlayOn('bindingSurface');
     const showDisulfides = overlayOn('disulfides');
     const showBindingAromatics = overlayOn('bindingAromatics');
+    const showSequons = overlayOn('sequons');
     const colorOnlySticks = !!document.getElementById('colorOnlySticks')?.checked;
     const stickLoops = new Set(overlayCbs.filter(cb => cb.dataset.overlay === 'loop').map(cb => cb.dataset.loop));
 
@@ -1335,6 +1347,9 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
                 }
                 rawdata.sort((a,b) => a['residue_number'] - b['residue_number']);
 
+                // the Asn of the N-glycosylation sequons in dark slate (3D only; an Asn with an
+                // active-site role keeps that colour)
+                const sequons = new Set(sequonNumbers()[proteinIndex] || []);
                 let rawdataIndex = 0;
                 for (let pos = 0; pos < protResNums.length; pos++){
                     const resNum = protResNums[pos];
@@ -1343,7 +1358,8 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
                         mainData.push({residue_number: resNum, representation: mainRep, representationColor: rawdata[rawdataIndex]['color']});
                         rawdataIndex++;
                     } else {
-                        mainData.push({residue_number: resNum, representation: mainRep, representationColor: {r:255, g:255, b:255}});
+                        mainData.push({residue_number: resNum, representation: mainRep,
+                                       representationColor: sequons.has(resNum) ? SEQUON_COLOR : {r:255, g:255, b:255}});
                     }
                 }
 
@@ -1439,11 +1455,13 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
             }
         }
 
-        // Binding-surface and loop overlays: runs of residue numbers (start..end in the
-        // structure's numbering), so take the structure's residues inside each run
+        // Binding-surface, disulfide and loop overlays: runs of residue numbers (start..end in
+        // the structure's numbering), so take the structure's residues inside each run -- up to
+        // the catalytic domain end unless the full length is shown (a bond of a CBM is outside)
         const sticksInRuns = (runs) => {
             for (const run of runs || []){
                 for (const resNum of protResNums){
+                    if (resNum > resLimit) break;
                     if (resNum >= run['start_residue_number'] && resNum <= run['end_residue_number']){
                         mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
                     }
@@ -1454,7 +1472,12 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
             sticksInRuns(molstarColoring['bindingSurface'][proteinIndex]);
         }
         if (showBindingAromatics) {
-            (bindingAromaticNumbers()[proteinIndex] || []).forEach(resNum => {
+            (bindingAromaticNumbers()[proteinIndex] || []).filter(resNum => resNum <= resLimit).forEach(resNum => {
+                mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
+            });
+        }
+        if (showSequons) {
+            (sequonNumbers()[proteinIndex] || []).filter(resNum => resNum <= resLimit).forEach(resNum => {
                 mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
             });
         }

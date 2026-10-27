@@ -145,13 +145,13 @@ h2.cmp-card-title {
 }
 
 /* room for one species name and one structure code per line */
-.catalog-table td:nth-child(8),
-.catalog-table th:nth-child(8) {
+.catalog-table td.col-structure,
+.catalog-table th[data-column="structure"] {
     min-width: 96px;
 }
 
-.catalog-table td:nth-child(10),
-.catalog-table th:nth-child(10) {
+.catalog-table td.col-organism,
+.catalog-table th[data-column="organism"] {
     min-width: 150px;
 }
 
@@ -232,6 +232,70 @@ h2.cmp-card-title {
     border-color: #cfd9d4;
     background: #eef6f0;
     color: #417459;
+}
+
+/* Table values with details on hover: dotted underline and a help cursor (the subtitle says so) */
+.catalog-table td [title]:not([title=""]):not(a):not(.expand-toggle):not(button) {
+    text-decoration: underline dotted #8aa79a;
+    text-underline-offset: 3px;
+    cursor: help;
+}
+
+.hover-hint {
+    text-decoration: underline dotted #8aa79a;
+    text-underline-offset: 3px;
+}
+
+/* "Columns": the table's column picker. The panel is fixed (placed under its button by the
+   script), since the table card scrolls sideways and would clip it */
+.column-picker > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.column-picker > summary::-webkit-details-marker {
+    display: none;
+}
+
+.column-picker > summary::after {
+    content: ' ▾';
+}
+
+.column-picker-panel {
+    position: fixed;
+    z-index: 1000;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 8px 10px;
+    border: 1px solid #cfd9d4;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    color: #333;
+    font-size: 12px;
+}
+
+.column-picker-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.column-picker-actions button {
+    padding: 2px 8px;
+    border: 1px solid #cfd9d4;
+    border-radius: 4px;
+    background: #fff;
+    color: #417459;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.column-picker-list label {
+    display: block;
+    padding: 2px 0;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
 /* "Download comparison (.zip)": everything of the comparison, so it stands out a little */

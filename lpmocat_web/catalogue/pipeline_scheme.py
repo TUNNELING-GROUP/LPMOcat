@@ -111,7 +111,7 @@ SCHEME = [
                to=['prepare'], step='2'),
          _node('prepare', 'Prepare', 'clean and trim',
                'One model, chain and alternate location; modified residues become their parent '
-               'amino acid; only the protein and its active-site metal are kept (no waters or '
+               'amino acid (which ones were modified, e.g. a methylated N-His, is recorded); only the protein and its active-site metal are kept (no waters or '
                'ligands). Internal gaps of up to 30 residues are rebuilt. Every structure is trimmed '
                'to start at the N-terminal histidine of the brace (N-His), using the annotated '
                'signal peptide or, for models without one, a SignalP prediction; C-terminal '

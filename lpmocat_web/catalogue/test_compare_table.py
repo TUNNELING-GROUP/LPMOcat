@@ -42,3 +42,62 @@ class SiteCellsTest(SimpleTestCase):
         cells = _site_cells(_protein())
         self.assertEqual({key: cell['text'] for key, cell in cells.items()},
                          {'second_sphere': '', 'shielding': '', 'n_his': '', 'internal_his': ''})
+
+
+class PropertyCellsTest(SimpleTestCase):
+    def _cells(self, **values):
+        from unittest import mock
+        from . import views
+        base = {'net_charge': -7.0, 'surface_charge': -5.2, 'pi': 4.81, 'gravy': -0.4123,
+                'disulfides': ['Cys14–Cys33 (L2–β9)'], 'metal': 'Cu', 'bacterial': False,
+                'sequons': [{'residue': 45, 'motif': 'N-K-T', 'rsa': 42, 'region': 'L2'}],
+                'n_his_methylated': 'yes', 'experimental': True,
+                'modified_residues': [{'residue': 1, 'name': 'HIC', 'parent': 'HIS'}]}
+        with mock.patch.object(views, '_property_values', return_value={**base, **values}):
+            return views._property_cells(None)
+
+    def test_cells(self):
+        cells = self._cells()
+        self.assertEqual({key: cell['text'] for key, cell in cells.items()},
+                         {'net_charge': '-7.0', 'surface_charge': '-5.2', 'pi': '4.81', 'gravy': '-0.41',
+                          'disulfides': '1', 'sequons': '1', 'n_his_methylated': 'Yes', 'metal': 'Cu'})
+        self.assertIn('HIC1, shown here as His', cells['n_his_methylated']['title'])
+        self.assertEqual(cells['sequons']['title'], 'Asn45 (N-K-T; L2, RSA 42 %)')
+        self.assertEqual(cells['disulfides']['title'], 'Cys14–Cys33 (L2–β9)')
+
+    def test_not_computed_and_none(self):
+        cells = self._cells(net_charge=None, pi=None, disulfides=[], metal='')
+        self.assertEqual(cells['net_charge']['text'], '')
+        self.assertEqual(cells['pi']['text'], '')
+        # no bond is 0, not unknown; no metal is a dash
+        self.assertEqual(cells['disulfides']['text'], '0')
+        self.assertEqual(cells['metal']['text'], '–')
+        self.assertEqual(self._cells(disulfides=None)['disulfides']['text'], '')
+
+    def test_sequons_of_a_bacterial_protein_are_potential_only(self):
+        cells = self._cells(bacterial=True)
+        self.assertIn('bacteria do not N-glycosylate', cells['sequons']['title'])
+        self.assertEqual(self._cells(sequons=[])['sequons'],
+                         {'text': '0', 'title': 'No N-X-S/T sequon in the catalytic domain'})
+
+    def test_methylation_of_a_model_and_a_plain_his(self):
+        self.assertEqual(self._cells(n_his_methylated=None, experimental=False, modified_residues=[])
+                         ['n_his_methylated']['text'], '–')
+        self.assertEqual(self._cells(n_his_methylated='no', modified_residues=[])['n_his_methylated']['text'], 'No')
+
+
+class NHisMethylationTest(SimpleTestCase):
+    def _protein(self, struct_id, found, brace='(1, 86)'):
+        return SimpleNamespace(selected_structure=struct_id, histidine_brace=brace,
+                               modified_residues=json.dumps(found) if found is not None else None)
+
+    def test_states(self):
+        from .overview import n_his_methylation
+        hic = [{'residue': 1, 'name': 'HIC', 'parent': 'HIS'}]
+        self.assertEqual(n_his_methylation(self._protein('4EIR', hic)), 'yes')
+        self.assertEqual(n_his_methylation(self._protein('8RRY', [])), 'no')
+        # another modified residue is not the N-His
+        self.assertEqual(n_his_methylation(self._protein('7NTL', [{'residue': 10, 'name': 'SNN', 'parent': 'ASN'}])), 'no')
+        # a model, or nothing recorded: unknown
+        self.assertIsNone(n_his_methylation(self._protein('AF-Q7SHI8', [])))
+        self.assertIsNone(n_his_methylation(self._protein('4EIR', None)))
