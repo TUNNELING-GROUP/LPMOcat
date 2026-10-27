@@ -12,7 +12,7 @@
      included, so a lone protein's pull is part of the chance level too) and the 95th
      percentile of the best score over ALL features is drawn as a line; a feature below it
      does no better than the best of many features on random groups
-   - features that move together across the compared proteins (|r|, Cramér's V or the
+   - features that move together across the compared proteins (|Spearman r|, Cramér's V or the
      correlation ratio >= REDUNDANT) are listed under the highest-ranked one, since they are
      one observation, not several
    - each feature is tagged: needs the 3D structure / from the sequence alone (composition
@@ -284,17 +284,14 @@
                     if (x !== undefined && y !== undefined) { xs.push(x); ys.push(y); }
                 }
             }
-            return xs.length >= 6 ? Math.abs(pearson(xs, ys) || 0) : 0;
+            return xs.length >= 6 ? Math.abs(pearson(ranks(xs), ranks(ys)) || 0) : 0;
         }
         const both = va.map((a, i) => [a, vb[i]]).filter(([a, b]) => a !== undefined && b !== undefined);
         if (both.length < 4) return 0;
         const xs = both.map(p => p[0]), ys = both.map(p => p[1]);
-        if (fa.kind === 'num' && fb.kind === 'num') {
-            const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
-            let sxy = 0, sxx = 0, syy = 0;
-            xs.forEach((x, i) => { sxy += (x - mx) * (ys[i] - my); sxx += (x - mx) ** 2; syy += (ys[i] - my) ** 2; });
-            return sxx && syy ? Math.abs(sxy / Math.sqrt(sxx * syy)) : 0;
-        }
+        // Spearman (Pearson's r of the ranks): two features that rise and fall together count as
+        // one measurement whether or not the relation is a straight line (net charge and pI is not)
+        if (fa.kind === 'num' && fb.kind === 'num') return Math.abs(pearson(ranks(xs), ranks(ys)) || 0);
         if (fa.kind === 'cat' && fb.kind === 'cat') return cramersV(xs, ys) || 0;
         // a number against a category: the correlation ratio
         const [nums, cats] = fa.kind === 'num' ? [xs, ys] : [ys, xs];
@@ -1105,5 +1102,8 @@
         return { sync };
     }
 
-    window.GroupingFeatures = { attach, analyse, analyseTree, analysePicked, featureList };
+    window.GroupingFeatures = { attach, analyse, analyseTree, analysePicked, featureList,
+                                // the statistics on their own, for checking them against reference
+                                // implementations (no part of the page uses them)
+                                _stats: { eta2, cramersV, permanova, setDistance, ranks, pearson, association } };
 })();
