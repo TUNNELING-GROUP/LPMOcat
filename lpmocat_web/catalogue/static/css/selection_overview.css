@@ -467,6 +467,11 @@
     margin-top: 6px;
 }
 
+.gf-actions {
+    display: flex;
+    gap: 6px;
+}
+
 .gf-note {
     margin-top: 6px;
     font-size: 10.5px;

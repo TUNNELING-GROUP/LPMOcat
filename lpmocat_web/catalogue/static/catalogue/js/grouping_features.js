@@ -875,6 +875,57 @@
         return box;
     }
 
+    // The ranked list as an SVG drawing (the rows shown: tag, name, direction, bar with the chance
+    // line, score) for window.SvgExport, which adds the title and the colour key
+    function listSvg(result, rows, picked, tree) {
+        const ns = 'http://www.w3.org/2000/svg', ROW = 18, CHAR = 6.2, BAR = 160;
+        const nameText = ([f, follower]) => (follower ? '↳ ' : '') + f.label + ` · ${f.part}` + (f.caveat ? ' ⚠' : '');
+        const nameW = Math.min(420, Math.max(120, ...rows.map(r => nameText(r).length * CHAR)));
+        const dirW = picked ? Math.min(260, Math.max(60, ...rows.map(([f]) => String(f.direction || '').length * 5.8))) : 0;
+        const xName = 16, xDir = xName + nameW + 8, xBar = xDir + (picked ? dirW + 8 : 0), xScore = xBar + BAR + 8;
+        const width = xScore + 40, height = rows.length * ROW + 6;
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        svg.setAttribute('font-family', 'Arial, sans-serif');
+        const put = (tag, attrs, text) => {
+            const node = document.createElementNS(ns, tag);
+            Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+            if (text != null) node.textContent = text;
+            svg.appendChild(node);
+            return node;
+        };
+        rows.forEach(([f, follower], i) => {
+            const y = 3 + i * ROW, mid = y + ROW / 2;
+            const below = !f.beats;
+            const ink = below ? '#8a9a92' : follower ? '#5a6b62' : '#333';
+            const size = follower ? 10.5 : 11.5;
+            put('rect', { x: 2, y: mid - 4.5, width: 9, height: 9, rx: 2, fill: TAGS[f.tag].color });
+            const name = put('text', { x: xName + (follower ? 10 : 0), y: mid + 4, 'font-size': size, fill: ink });
+            const main = document.createElementNS(ns, 'tspan');
+            main.textContent = (follower ? '↳ ' : '') + f.label;
+            const part = document.createElementNS(ns, 'tspan');
+            part.setAttribute('fill', '#8a9a92');
+            part.textContent = ` · ${f.part}`;
+            name.append(main, part);
+            if (f.caveat) {
+                const caveat = document.createElementNS(ns, 'tspan');
+                caveat.setAttribute('fill', '#c07a00');
+                caveat.textContent = ' ⚠';
+                name.appendChild(caveat);
+            }
+            if (picked) put('text', { x: xDir, y: mid + 4, 'font-size': 10.5, fill: '#6b5a1e' }, f.direction || '');
+            put('rect', { x: xBar, y: mid - 4.5, width: BAR, height: 9, rx: 2, fill: '#eef2f0' });
+            put('rect', { x: xBar, y: mid - 4.5, width: Math.max(0, f.score) * BAR, height: 9, rx: 2,
+                          fill: TAGS[f.tag].color, 'fill-opacity': below ? 0.45 : 1 });
+            const cx = xBar + result.chance * BAR;
+            put('line', { x1: cx, x2: cx, y1: mid - 6.5, y2: mid + 6.5, stroke: '#d33682', 'stroke-width': 1.5, 'stroke-dasharray': '3 2' });
+            put('text', { x: xScore, y: mid + 4, 'font-size': 11, fill: ink },
+                (tree && f.score > 0 ? '+' : '') + f.score.toFixed(2));
+        });
+        return svg;
+    }
+
     function render(root, result, showAll) {
         root.replaceChildren();
         if (result.error) {
@@ -978,12 +1029,32 @@
             list.appendChild(row);
         });
         root.appendChild(list);
+        const actions = el('div', 'gf-actions');
         if (result.leaders.length > SHOWN) {
             const more = el('button', 'ov-view-btn gf-more', showAll ? 'Show fewer' : `Show all ${result.leaders.length}`);
             more.type = 'button';
             more.addEventListener('click', () => render(root, result, !showAll));
-            root.appendChild(more);
+            actions.appendChild(more);
         }
+        const svgButton = el('button', 'ov-view-btn gf-more', 'SVG');
+        svgButton.type = 'button';
+        svgButton.title = 'Download the features shown as an SVG image';
+        svgButton.addEventListener('click', () => {
+            if (!window.SvgExport) return;
+            const legend = [];
+            Object.values(TAGS).forEach(t => legend.push(['■', t.color], [t.label, null]));
+            legend.push(['┆', '#d33682'], [`chance level ${result.chance.toFixed(2)}`, null]);
+            window.SvgExport.svg(listSvg(result, rows, picked, tree), {
+                title: head.textContent,
+                sub: tree ? "Spearman r between tree distance and feature difference over every pair of proteins"
+                    : picked ? '|2 AUC − 1| (numbers, hole-hopping positions) or total variation distance (categories), picked vs reference'
+                    : "η² (numbers), Cramér's V (categories), PERMANOVA R² (hole-hopping positions) between the groups",
+                legend,
+                filename: `lpmocat_selection_features_${tree ? 'tree' : picked ? 'picked' : 'groups'}`,
+            });
+        });
+        actions.appendChild(svgButton);
+        root.appendChild(actions);
         root.appendChild(el('p', 'ov-hint gf-note', picked
             ? 'Numbers: |2 AUC − 1|, 1 = every picked protein lies above (or below) every reference protein, '
               + '0 = the two sets overlap evenly; beside each the medians (means when they tie), picked vs reference. Categories: '
