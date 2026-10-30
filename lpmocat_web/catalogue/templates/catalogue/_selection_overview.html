@@ -83,6 +83,7 @@
                 {# loadLogo / loadAnalysis); both highlight their proteins in the tree on the left #}
                 <div class="sel-analysis" id="analysis-panel">
                     <figure class="sel-an-card">
+                        <button type="button" class="ov-view-btn sel-an-export" onclick="exportLogoSvg()" title="Download the logo as an SVG image">SVG</button>
                         <figcaption>
                             <span class="ov-card-title">Sequence composition logo</span>
                             <span class="ov-card-sub">One column per aligned position of the catalytic domain; a letter's height is the share of the compared proteins with that residue, the empty top the share with a gap. One tall letter: a conserved position; several short ones: a variable one. Hover a letter to highlight its proteins in the tree.</span>
@@ -90,6 +91,7 @@
                         <div id="analysisLogo" class="analysis-plot"></div>
                     </figure>
                     <figure class="sel-an-card">
+                        <button type="button" class="ov-view-btn sel-an-export" onclick="exportSimilaritySvg()" title="Download the heatmap as an SVG image">SVG</button>
                         <figcaption>
                             <span class="ov-card-title">Protein similarity</span>
                             <span class="ov-card-sub">How alike two proteins are for one property over one region, compared position by position along the structural alignment. Hover a cell for the pair, its value and the positions it rests on (the pair is also highlighted in the tree). Few positions (one loop, the binding surface, hole hopping) make it noisy.</span>
@@ -147,4 +149,5 @@
 </section>
 <script src="{% static 'catalogue/js/selection_tree.js' %}?{% now 'U' %}" defer></script>
 <script src="{% static 'catalogue/js/grouping_features.js' %}?{% now 'U' %}" defer></script>
+<script src="{% static 'catalogue/js/svg_export.js' %}?{% now 'U' %}" defer></script>
 <script src="{% static 'catalogue/js/catalogue_overview.js' %}?{% now 'U' %}" defer></script>

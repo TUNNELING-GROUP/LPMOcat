@@ -1655,6 +1655,18 @@
             syncCaption();
         }
         tools.appendChild(button);
+        const svgButton = el('button', 'ov-view-btn', 'SVG');
+        svgButton.type = 'button';
+        svgButton.title = 'Download the chart as an SVG image';
+        tools.appendChild(svgButton);
+        svgButton.addEventListener('click', () => {
+            if (!plot.dataset.rendered || !window.SvgExport) return;
+            const title = caption.querySelector('.ov-card-title').textContent;
+            window.SvgExport.plotly(plot, {
+                title, sub: caption.querySelector('.ov-card-sub'),
+                filename: window.SvgExport.filenameOf(title, selectionMode ? 'lpmocat_selection_' : 'lpmocat_'),
+            });
+        });
 
         button.addEventListener('click', () => {
             const showTable = tableBox.hidden;

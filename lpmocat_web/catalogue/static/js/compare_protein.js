@@ -921,6 +921,33 @@ function renderLogo(d) {
 }
 window.renderLogo = renderLogo;
 
+// SVG downloads of the logo (its lanes' colour key under the title) and the heatmap
+var LOGO_LEGEND = [['Lanes:', null], ['brace histidines', '#BA03BA'], ['axial aromatic', '#FF8C00'],
+    ['second-sphere motif', '#26A69A'], ['shielding residue', '#8D6E63'], ['binding surface', '#00796B'],
+    ['L2', '#FF4500'], ['L3', '#FF8C00'], ['LS', '#8A2BE2'], ['L8', '#1E90FF'], ['LC', '#228B22']];
+function exportLogoSvg() {
+    var svg = document.querySelector('#analysisLogo svg');
+    if (!svg || !window.SvgExport) return;
+    window.SvgExport.svg(svg, {
+        title: 'Sequence composition logo',
+        sub: 'One column per aligned position of the catalytic domain; letter height = share of the '
+            + 'compared proteins with that residue, the empty top = share with a gap.',
+        legend: LOGO_LEGEND,
+        filename: 'lpmocat_selection_sequence_logo'
+    });
+}
+function exportSimilaritySvg() {
+    var el = document.getElementById('analysisSimilarity');
+    if (!el || !el._fullLayout || !window.SvgExport) return;
+    window.SvgExport.plotly(el, {
+        title: 'Protein similarity',
+        sub: (el.layout.title && el.layout.title.text) || '',
+        filename: 'lpmocat_selection_similarity'
+    });
+}
+window.exportLogoSvg = exportLogoSvg;
+window.exportSimilaritySvg = exportSimilaritySvg;
+
 // Fetch one plot-type's plots for the current protein set and render them into
 // `scrollable`. The data comes from the server plot-bundle cache, so this is
 // cheap once the bundle has been built (by the initial page render).

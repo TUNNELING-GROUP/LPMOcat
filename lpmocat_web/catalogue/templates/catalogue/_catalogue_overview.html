@@ -9,4 +9,5 @@
     {% include "catalogue/_overview_cards.html" %}
     {{ overview|json_script:"catalogue-overview-data" }}
 </div>
+<script src="{% static 'catalogue/js/svg_export.js' %}?{% now 'U' %}" defer></script>
 <script src="{% static 'catalogue/js/catalogue_overview.js' %}?{% now 'U' %}" defer></script>
