@@ -30,7 +30,7 @@ CONTINUOUS = ("charge", "hydrophobicity", "flexibility", "rsa")
 CATEGORICAL = ("sequence", "aa_groups")
 PROPERTIES = CONTINUOUS + CATEGORICAL
 PROPERTY_LABELS = {
-    "charge": "Charge", "hydrophobicity": "Hydrophobicity",
+    "charge": "Charge", "hydrophobicity": "Hydrophobicity (Kyte–Doolittle)",
     "flexibility": "Flexibility", "rsa": "Relative SASA",
     "sequence": "Sequence (identity)", "aa_groups": "Amino-acid groups",
 }

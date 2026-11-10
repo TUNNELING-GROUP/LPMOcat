@@ -161,8 +161,8 @@
                     <th class="sortable" data-column="pi" onclick="sortTable(this.cellIndex)" title="Isoelectric point of the catalytic domain, estimated from its sequence (Biopython ProtParam): the pH at which its net charge would be zero">
                         CD pI <span class="sort-indicator"></span>
                     </th>
-                    <th class="sortable" data-column="gravy" onclick="sortTable(this.cellIndex)" title="GRAVY of the catalytic domain: the mean Kyte–Doolittle hydropathy of its residues; below 0 = hydrophilic">
-                        CD GRAVY <span class="sort-indicator"></span>
+                    <th class="sortable" data-column="gravy" onclick="sortTable(this.cellIndex)" title="Hydrophobicity of the catalytic domain as GRAVY: the mean Kyte–Doolittle hydropathy of its residues; below 0 = hydrophilic">
+                        CD hydrophobicity (GRAVY, Kyte–Doolittle) <span class="sort-indicator"></span>
                     </th>
                     <th class="sortable" data-column="disulfides" onclick="sortTable(this.cellIndex)" title="Disulfide bonds with both Cys in the catalytic domain (S–S &le; 3.0 &Aring;); hover for the pairs and the regions they join">
                         Disulfide bonds <span class="sort-indicator"></span>
@@ -514,7 +514,7 @@
                             <label style="font-size: 0.85em; color: #5a7a6a;">Scale:</label>
                             <select id="hydrophobScaleSelect" class="viewerSelect" style="width: auto;" onchange="changeHydrophobicityScale(this.value)">
                                 {% for scale_name in hydrophobicity_scale_names %}
-                                <option value="{{ scale_name }}">{{ scale_name }}</option>
+                                <option value="{{ scale_name }}">{% if scale_name == "Kyte-Doolittle" %}Kyte–Doolittle (GRAVY){% else %}{{ scale_name }}{% endif %}</option>
                                 {% endfor %}
                             </select>
                             <button class="exportBtn" onclick="exportPlotData('{{ data.type }}')" title="Download {{ data.type }} data">Download data (.csv)</button>

@@ -1551,7 +1551,7 @@ def compare_analysis(request):
     if compare_limits.too_many(codes):
         return JsonResponse({'ok': False, 'error': compare_limits.limit_message(len(set(codes)))}, status=400)
 
-    ck = _section_cache_key(codes, f'analysis:{region}:{prop}:{flex}:{int(exposed)}:{min_occ}:v15')
+    ck = _section_cache_key(codes, f'analysis:{region}:{prop}:{flex}:{int(exposed)}:{min_occ}:v16')
     plot_cache = _plots_cache(codes)
     cached = plot_cache.get(ck)
     if cached is not None:

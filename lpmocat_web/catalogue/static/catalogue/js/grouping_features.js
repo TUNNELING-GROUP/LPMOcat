@@ -74,17 +74,17 @@
             { label: 'Length', part: 'catalytic domain', tag: 'sequence', unit: 'residues', get: p => (m(p).length || {}).cd },
             { label: 'Mass', part: 'catalytic domain', tag: 'sequence', unit: 'kDa', get: p => (m(p).mass || {}).cd },
             { label: 'Net charge', part: 'catalytic domain', tag: 'sequence', unit: 'e', get: p => (m(p).charge || {}).cd },
-            { label: 'GRAVY', part: 'catalytic domain', tag: 'sequence', get: p => ((m(p).hydrophobicity || {})[scale] || {}).cd },
+            { label: 'Hydrophobicity (GRAVY, Kyte–Doolittle)', part: 'catalytic domain', tag: 'sequence', get: p => ((m(p).hydrophobicity || {})[scale] || {}).cd },
             // residue sets the structure defines
             { label: 'Residues', part: 'surface', tag: 'structure', unit: 'residues', get: p => (m(p).surface_length || {}).cd },
             { label: 'Net charge', part: 'surface', tag: 'structure', unit: 'e', get: p => (m(p).surface_charge || {}).cd },
-            { label: 'GRAVY', part: 'surface', tag: 'structure', get: p => ((m(p).surface_hydrophobicity || {})[scale] || {}).cd },
+            { label: 'Hydrophobicity (GRAVY, Kyte–Doolittle)', part: 'surface', tag: 'structure', get: p => ((m(p).surface_hydrophobicity || {})[scale] || {}).cd },
             { label: 'Residues', part: 'all loops', tag: 'structure', unit: 'residues', get: p => set(p, 'loops').residues },
             { label: 'Net charge', part: 'all loops', tag: 'structure', unit: 'e', get: p => set(p, 'loops').charge },
-            { label: 'GRAVY', part: 'all loops', tag: 'structure', get: p => (set(p, 'loops').hydrophobicity || {})[scale] },
+            { label: 'Hydrophobicity (GRAVY, Kyte–Doolittle)', part: 'all loops', tag: 'structure', get: p => (set(p, 'loops').hydrophobicity || {})[scale] },
             { label: 'Residues', part: 'substrate-binding', tag: 'structure', unit: 'residues', get: p => set(p, 'binding').residues },
             { label: 'Net charge', part: 'substrate-binding', tag: 'structure', unit: 'e', get: p => set(p, 'binding').charge },
-            { label: 'GRAVY', part: 'substrate-binding', tag: 'structure', get: p => (set(p, 'binding').hydrophobicity || {})[scale] },
+            { label: 'Hydrophobicity (GRAVY, Kyte–Doolittle)', part: 'substrate-binding', tag: 'structure', get: p => (set(p, 'binding').hydrophobicity || {})[scale] },
         ];
         // flexibility of all loops together and of their substrate-binding residues: each loop's
         // mean RMSF weighted by its residue count ([all, surface, binding] triples in loop_values)
@@ -108,7 +108,7 @@
                 { label: 'Length', part: loop, tag: 'structure', unit: 'residues', get: p => ((p.loops || {})[loop] || [])[0] },
                 { label: 'Flexibility (RMSF)', part: loop, tag: 'structure', unit: 'Å', get: p => first(lv(p).rmsf) },
                 { label: 'Net charge', part: loop, tag: 'structure', unit: 'e', get: p => first(lv(p).charge) },
-                { label: 'GRAVY', part: loop, tag: 'structure', get: p => first(first(lv(p).hydrophobicity)) },
+                { label: 'Hydrophobicity (GRAVY, Kyte–Doolittle)', part: loop, tag: 'structure', get: p => first(first(lv(p).hydrophobicity)) },
                 { label: 'Binding residues', part: loop, tag: 'structure', unit: 'residues', get: p => (lv(p).residues || [])[2] },
                 { label: 'Net charge of the binding residues', part: loop, tag: 'structure', unit: 'e', get: p => (lv(p).charge || [])[2] },
             );

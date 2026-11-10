@@ -1106,9 +1106,10 @@
     const capitalise = text => text.charAt(0).toUpperCase() + text.slice(1);
 
     const SCALE_OPTIONS = data.hydrophobicity_scales.map((scale, i) => ({
-        value: scale.name, label: i === 0 ? `GRAVY (${scale.name})` : scale.name,
+        value: scale.name, label: i === 0 ? 'Kyte–Doolittle (GRAVY)' : scale.name,
     }));
     const isGravy = scale => scale === data.hydrophobicity_scales[0].name;
+    const GRAVY = 'Hydrophobicity (GRAVY, Kyte–Doolittle)';   // GRAVY is the mean on that scale
     // subtitle of a hydrophobicity chart: the scale's meaning, for the residues `of`
     function scaleSub(scale, of) {
         if (isGravy(scale)) return `GRAVY: mean Kyte–Doolittle hydropathy of ${of}; below 0 = hydrophilic`;
@@ -1165,7 +1166,7 @@
                 sub: scaleSub(scale, ofLoop),
                 chart: distributionChart({
                     panels: loopPanels((p, loop) => pick((loopValues(p, loop).hydrophobicity || [])[index]), true),
-                    format: v => signed(v, 2), unit: '', title: isGravy(scale) ? 'GRAVY' : `Mean ${scale}`,
+                    format: v => signed(v, 2), unit: '', title: isGravy(scale) ? GRAVY : `Mean ${scale}`,
                 }),
             };
         }
@@ -1483,10 +1484,10 @@
                     sub: scaleSub(scale, of) + (RESIDUE_SET[which] ? insideDomain : ''),
                     chart: distributionChart({
                         panels: [{
-                            name: gravy ? 'GRAVY' : scale,
+                            name: gravy ? GRAVY : scale,
                             value: p => hydrophobicityValue(p, which, scale, sc),
                         }],
-                        format: v => signed(v, 2), unit: '', title: gravy ? 'GRAVY' : `Mean ${scale}`,
+                        format: v => signed(v, 2), unit: '', title: gravy ? GRAVY : `Mean ${scale}`,
                     }),
                 };
             },
