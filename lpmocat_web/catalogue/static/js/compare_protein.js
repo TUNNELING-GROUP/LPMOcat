@@ -2311,7 +2311,7 @@ function waitForMolstarFrames(plugin, n, fallbackMs) {
 // structures: the copper and the normal are averaged over the visible proteins.
 //   top  - looking straight down onto the copper face, the copper in the centre, the brace
 //          horizontal with the N-His on the left (default)
-//   side - from the side, the copper face up, the brace horizontal
+//   side - from the side, the copper face down (the copper at the bottom), the brace horizontal
 //   site - close up on the copper, from above
 const _v3 = {
     add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
@@ -2371,10 +2371,11 @@ function viewModeCamera(mode, plugin){
         return sceneRadius + _v3.len(sideways);
     };
     if (mode === 'side') {
-        // looking along `across` with the face up: dir x normal = right again, the brace
-        // horizontal as in the top view
-        const dir = across;
-        return {target: center, fit: wholeScene(center, dir), clip: clip, up: normal, dir: dir};
+        // the face down, so the copper sits at the bottom as on a substrate below it: up is
+        // -normal, and looking along -across keeps dir x up = right, the brace horizontal with
+        // the N-His on the left as in the top view
+        const dir = _v3.scale(across, -1);
+        return {target: center, fit: wholeScene(center, dir), clip: clip, up: _v3.scale(normal, -1), dir: dir};
     }
     const down = _v3.scale(normal, -1);
     if (mode === 'site') {
