@@ -1,0 +1,15 @@
+{# The structural elements of one layer of the 3D viewer (layer = main | overlay); the same list in both layers, read by compare_protein.js (layerElements, elementResidues) #}
+{% with on="if(window.viewerInstance) changeVisibleRepresentationType(window.protIdList.length, window.viewerInstance)" %}
+<div class="toggle-group">
+    {% if stick_loops %}<span class="toggle-group-label">Loops</span>{% endif %}
+    {% for ln in stick_loops %}<label class="toggle-btn"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="loop:{{ ln }}" onchange="{{ on }}"> {{ ln }}</label>{% endfor %}
+    <label class="toggle-btn"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="core" onchange="{{ on }}"> Core β-strands</label>
+    <label class="toggle-btn" title="The residues a plane laid on the copper face touches"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="bindingSurface" onchange="{{ on }}"> Binding surface</label>
+    <label class="toggle-btn" title="Phe, Trp, Tyr and His on the binding surface (the brace histidines left out)"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="bindingAromatics" onchange="{{ on }}"> Aromatic binding residues</label>
+    <label class="toggle-btn"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="brace" onchange="{{ on }}"> Histidine brace</label>
+    <label class="toggle-btn" title="The axial aromatic, the second-sphere motif, the shielding residue and the side chains in contact with the brace"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="secondSphere" onchange="{{ on }}"> Second-sphere residues</label>
+    <label class="toggle-btn" title="Both cysteines of every disulfide bond"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="disulfides" onchange="{{ on }}"> Disulfide bonds</label>
+    <label class="toggle-btn" title="The Asn of every N-X-S/T sequon (X not Pro) in the catalytic domain: potential N-glycosylation sites, read from the sequence (bacteria do not N-glycosylate)"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="sequons" onchange="{{ on }}"> N-glycosylation sequons</label>
+    <label class="toggle-btn" title="The residues on the hole-hopping paths to the copper"><input type="checkbox" class="layerElement" data-layer="{{ layer }}" data-element="holeHopping" onchange="{{ on }}"> Hole-hopping residues</label>
+</div>
+{% endwith %}

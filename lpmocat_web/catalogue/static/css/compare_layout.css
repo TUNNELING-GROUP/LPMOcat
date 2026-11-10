@@ -342,21 +342,102 @@ h2.cmp-card-title {
 
 .mstar-controls {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 12px 18px;
+    flex-direction: column;
+    gap: 10px;
     padding: 0;
 }
 
-.mstar-group {
+/* One row per part of the viewer (Proteins, Main, Overlay, View): its name on the left, its
+   fields beside it; Main and Overlay are framed as the two layers they are */
+.mstar-layer {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    align-items: start;
+    gap: 8px;
+}
+
+.mstar-layer-name {
+    padding-top: 6px;
+    color: #2f5d47;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.mstar-layer-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 16px;
+}
+
+/* the Proteins menu as wide as its button, so the Full length switch sits beside it */
+.mstar-layer-body .protein-visibility-dropdown {
+    width: auto;
+}
+
+.mstar-layer-body > .fulllen-switch {
+    align-self: center;
+}
+
+.mstar-layer:has(.layerElement) .mstar-layer-body {
+    padding: 8px 10px;
+    border: 1px solid #e3ebe7;
+    border-radius: 6px;
+}
+
+/* a field of a layer: its label above it; What takes the whole row */
+.mstar-field {
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
 
-/* "Show" grows to fill the rest of the row, so its buttons spread across the free space */
-.mstar-group.grow {
-    flex: 1 1 260px;
+.mstar-field.wide {
+    flex: 1 1 100%;
+}
+
+/* Overlay: folded until opened; the note is its heading, "Show options" / "Hide options"
+   after it, the layer's fields inside */
+.overlay-fold {
+    display: block;
+}
+
+.overlay-fold summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.overlay-fold summary::-webkit-details-marker {
+    display: none;
+}
+
+.overlay-fold-toggle {
+    color: #569976;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.overlay-fold-toggle::after {
+    content: "Show options ▸";
+}
+
+.overlay-fold[open] .overlay-fold-toggle::after {
+    content: "Hide options ▾";
+}
+
+.overlay-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 16px;
+    margin-top: 8px;
+}
+
+/* the line at the top of the Overlay layer saying what it is for */
+.mstar-note {
+    color: #777;
+    font-size: 12px;
 }
 
 .mstar-label {
@@ -414,26 +495,9 @@ h2.cmp-card-title {
     color: #fff;
 }
 
-/* A plain checkbox under a control ("Colour only the sticks") */
-.plain-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: #444;
-    font-size: 12px;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.plain-check input {
-    margin: 0;
-    accent-color: #569976;
-}
-
-/* "Loops" inside the Show as sticks group, before the L2, L3 ... buttons */
+/* "Loops" in a layer's What, before the L2, L3 ... buttons */
 .toggle-group-label {
     align-self: center;
-    margin-left: 6px;
     color: #777;
     font-size: 12px;
 }
@@ -443,7 +507,6 @@ h2.cmp-card-title {
    from the checkbox */
 .switch-row {
     display: flex;
-    flex: 1 1 100%;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 28px;
@@ -977,4 +1040,66 @@ a.actRef:hover {
 
 .visibility-groups .groupOnlyBtn:hover {
     border-color: var(--group-color);
+}
+
+/* A layer's Proteins menu (which proteins Main / Overlay draws): a button and a panel of
+   tick boxes below it */
+.layer-proteins {
+    position: relative;
+}
+
+.layer-proteins summary {
+    min-width: 130px;
+    list-style: none;
+    cursor: pointer;
+}
+
+.layer-proteins summary::-webkit-details-marker {
+    display: none;
+}
+
+.layer-proteins-panel {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 180px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px 10px;
+    border: 1px solid #d8e3dd;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.layer-proteins-panel .visibility-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.layer-proteins-panel .visibility-actions button {
+    padding: 3px 8px;
+    border: 1px solid #cfe2d9;
+    border-radius: 4px;
+    background: #eef6f2;
+    color: #569976;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.layer-proteins-panel label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    color: #4d5d55;
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.layer-proteins-panel input {
+    accent-color: #569976;
 }

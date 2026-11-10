@@ -341,9 +341,13 @@
                 <div class="ViewerButtonsAndHeaderContainer">
                     <div class="controlsBar">
                         <div class="mstar-controls">
-                            <!-- 1. Proteins -->
-                            <div class="mstar-group">
-                                <span class="mstar-label">Proteins</span>
+                            <!-- The viewer's controls: which proteins, then two layers that each answer What
+                                 (structural elements, input.layerElement) / Show as / Colour by -- Main (the
+                                 protein) and Overlay (residues drawn over it) -- then the camera.
+                                 Read by initializeRepresentations. -->
+                            <div class="mstar-layer">
+                                <span class="mstar-layer-name">Proteins</span>
+                                <div class="mstar-layer-body">
                                 <div class="protein-visibility-dropdown" id="proteinVisibilityDropdown">
                                     <button type="button" id="proteinVisibilityToggle" class="viewerSelect">Showing all proteins</button>
                                     <div class="protein-visibility-panel" id="proteinVisibilityPanel">
@@ -367,22 +371,38 @@
                                         </div>
                                     </div>
                                 </div>
+                                <label class="fulllen-switch" id="fullLenSwitchViewer" title="Catalytic domain only, or the whole protein length: the same switch as above the plots, for the 3D viewer and every plot">
+                                    <input type="checkbox" id="showFullStructureViewer" onchange="var m = document.getElementById('showFullStructure'); if (m) { m.checked = this.checked; m.dispatchEvent(new Event('change')); }">
+                                    <span class="fulllen-side fulllen-left">Catalytic domain</span>
+                                    <span class="fulllen-track"><span class="fulllen-knob"></span></span>
+                                    <span class="fulllen-side fulllen-right">Full length</span>
+                                </label>
+                                </div>
                             </div>
-                            <!-- 2. Show as (representation) -->
-                            <div class="mstar-group">
-                                <span class="mstar-label">Show as</span>
-                                <select id="mainRepSelect" class="viewerSelect" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)">
-                                    <option value="cartoon" selected>Cartoon</option>
-                                    <option value="molecular-surface">Surface</option>
-                                    <option value="ball-and-stick">Ball and stick</option>
-                                    <option value="none">None</option>
-                                </select>
-                            </div>
-                            <!-- 3. Colour by (each plot also has its own "Colour 3D by this" button) -->
-                            <div class="mstar-group">
-                                <span class="mstar-label">Colour by</span>
-                                <label for="coloringSelect" class="sr-only">Color residues by</label>
-                                <select id="coloringSelect" class="viewerSelect" onchange="if(window.viewerInstance) applyMolstarColoring(this.value, {{protCount}});">
+                            <div class="mstar-layer">
+                                <span class="mstar-layer-name" title="The protein itself">Main</span>
+                                <div class="mstar-layer-body">
+                                    <div class="mstar-field wide">
+                                        {% include "catalogue/_viewer_elements.html" with layer="main" %}
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Proteins</span>
+                                        {% include "catalogue/_viewer_layer_proteins.html" with layer="main" %}
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Show as</span>
+                                        <select id="mainRepSelect" class="viewerSelect" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)">
+                                            <option value="cartoon" selected>Cartoon</option>
+                                            <option value="molecular-surface">Surface</option>
+                                            <option value="ball-and-stick">Ball and stick</option>
+                                            <option value="none">None</option>
+                                            <option value="spacefill">Spacefill</option>
+                                        </select>
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Colour by</span>
+                                        <label for="coloringSelect" class="sr-only">Color residues by</label>
+                                        <select id="coloringSelect" class="viewerSelect" onchange="if(window.viewerInstance) applyMolstarColoring(this.value, {{protCount}});">
                                     <option value="none">None (white)</option>
                                     <option value="sequence" selected title="The Sequence plot's colours: residue types (charged, aromatic, sulphur-containing) and the active-site roles (brace, second sphere, motifs); in 3D also the Asn of the N-glycosylation sequons (dark slate)">Amino-acid groups</option>
                                     <option value="flexibility">Flexibility</option>
@@ -395,35 +415,62 @@
                                     <option value="holeHopping">Hole hopping</option>
                                     {% if protein_groups.groups %}<option value="group">Group</option>{% endif %}
                                 </select>
-                                <label class="plain-check" title="The protein white; the residues shown as sticks keep the colours of the chosen colouring"><input type="checkbox" id="colorOnlySticks" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Colour only the sticks</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mstar-layer">
+                                <span class="mstar-layer-name" title="Residues drawn over the main layer">Overlay</span>
+                                <!-- folded until opened: the note says what the layer is for -->
+                                <details class="mstar-layer-body overlay-fold">
+                                    <summary><span class="mstar-note">Highlight other parts on top of the main layer: a second layer with its own proteins, representation and colouring.</span> <span class="overlay-fold-toggle"></span></summary>
+                                    <div class="overlay-options">
+                                    <div class="mstar-field wide">
+                                        {% include "catalogue/_viewer_elements.html" with layer="overlay" %}
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Proteins</span>
+                                        {% include "catalogue/_viewer_layer_proteins.html" with layer="overlay" %}
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Show as</span>
+                                        <select id="overlayRepSelect" class="viewerSelect" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)">
+                                            <option value="cartoon" selected title="Over a cartoon main layer it replaces those residues, so they take the overlay's colouring">Cartoon</option>
+                                            <option value="ball-and-stick">Sticks</option>
+                                            <option value="spacefill">Spacefill</option>
+                                        </select>
+                                    </div>
+                                    <div class="mstar-field">
+                                        <span class="mstar-label">Colour by</span>
+                                        <select id="overlayColoringSelect" class="viewerSelect" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)">
+                                            <option value="main" selected title="Each residue in its colour of the main layer's colouring">Same as main</option>
+                                            <optgroup label="A colouring of its own">
+                                    <option value="none">None (white)</option>
+                                    <option value="sequence" title="The Sequence plot's colours: residue types (charged, aromatic, sulphur-containing) and the active-site roles (brace, second sphere, motifs); in 3D also the Asn of the N-glycosylation sequons (dark slate)">Amino-acid groups</option>
+                                    <option value="flexibility">Flexibility</option>
+                                    <option value="hydrophobicity">Hydrophobicity</option>
+                                    <option value="charge">Charge</option>
+                                    <option value="secondaryStructure">Secondary structure</option>
+                                    <option value="rsa">Relative surface accessibility</option>
+                                    <option value="bindingSurface">Binding surface</option>
+                                    <option value="loopRegions">Loop regions</option>
+                                    <option value="holeHopping">Hole hopping</option>
+                                    {% if protein_groups.groups %}<option value="group">Group</option>{% endif %}
+                                </optgroup>
+                                        </select>
+                                    </div>
+                                    </div>
+                                </details>
                             </div>
                             <!-- View: the camera set from the binding-surface plane (step 7c); a click
                                  re-applies the view, also after the structure was turned by hand -->
-                            <div class="mstar-group">
-                                <span class="mstar-label">View</span>
+                            <div class="mstar-layer">
+                                <span class="mstar-layer-name">View</span>
+                                <div class="mstar-layer-body">
                                 <div class="toggle-group" title="Oriented by the plane laid on the copper face (the binding surface)">
                                     <label class="toggle-btn" title="Looking straight down onto the copper face, the copper in the centre"><input type="radio" name="viewMode" value="top" checked onclick="applyViewMode(this.value)"> Top</label>
                                     <label class="toggle-btn" title="From the side, the copper face down"><input type="radio" name="viewMode" value="side" onclick="applyViewMode(this.value)"> Side</label>
                                     <label class="toggle-btn" title="Close up on the copper, from above"><input type="radio" name="viewMode" value="site" onclick="applyViewMode(this.value)"> Active site</label>
                                 </div>
-                            </div>
-                            <!-- 4. Show as sticks: residue sets drawn as sticks over the main representation
-                                 (data-overlay names the set, read by initializeRepresentations) -->
-                            <div class="mstar-group grow">
-                                <span class="mstar-label">Show as sticks</span>
-                                <div class="toggle-group">
-                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="brace" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Histidine brace</label>
-                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="secondSphere" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Second-sphere residues</label>
-                                    <label class="toggle-btn" title="The residues a plane laid on the copper face touches"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingSurface" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Binding surface</label>
-                                    <label class="toggle-btn" title="Phe, Trp, Tyr and His on the binding surface (the brace histidines left out)"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="bindingAromatics" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Aromatic binding residues</label>
-                                    <label class="toggle-btn" title="Both cysteines of every disulfide bond"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="disulfides" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Disulfide bonds</label>
-                                    <label class="toggle-btn" title="The Asn of every N-X-S/T sequon (X not Pro) in the catalytic domain: potential N-glycosylation sites, read from the sequence (bacteria do not N-glycosylate)"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="sequons" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> N-glycosylation sequons</label>
-                                    <label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="holeHopping" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> Hole-hopping residues</label>
-                                    {% if stick_loops %}<span class="toggle-group-label">Loops</span>{% endif %}
-                                    {% for ln in stick_loops %}<label class="toggle-btn"><input type="checkbox" class="proteinRepresentationCheckbox" data-overlay="loop" data-loop="{{ ln }}" onchange="if(window.viewerInstance) changeVisibleRepresentationType({{protCount}}, window.viewerInstance)"> {{ ln }}</label>{% endfor %}
-                                </div>
-                            </div>
-                            <!-- 5./6. Two independent switches on a row of their own -->
                             <div class="switch-row">
                             <!-- 5. Hole-hopping paths: an overlay drawn over the viewer (canvas) -->
                             <div class="switch-group">
@@ -436,6 +483,8 @@
                             <div class="switch-group">
                                 <label class="mini-switch" title="The structures with the polar hydrogens added by PDB2PQR (standard protonation states)"><input type="checkbox" id="showProtonated" onchange="reloadStructures(this.checked)"><span class="mini-switch-track"><span class="mini-switch-knob"></span></span> Load protonated structures</label>
                             </div>
+                            </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -472,6 +521,11 @@
                         var sw = document.getElementById('fullLenSwitch');
                         if (!cb || !sw) return;
                         sw.classList.toggle('is-full', cb.checked);
+                        // the viewer's copy of the switch
+                        var mirror = document.getElementById('showFullStructureViewer');
+                        if (mirror) mirror.checked = cb.checked;
+                        var mirrorSwitch = document.getElementById('fullLenSwitchViewer');
+                        if (mirrorSwitch) mirrorSwitch.classList.toggle('is-full', cb.checked);
                     }
                     window.syncFullLenLabel = syncFullLenLabel;
                     syncFullLenLabel();
@@ -837,9 +891,8 @@
             fetchColoring('hydrophobicityScales', scaleName).then(function (coloring) {
                 if (!coloring || currentHydrophobScale !== scaleName) return;
                 molstarColoring.hydrophobicity = coloring;
-                var coloringSelect = document.getElementById('coloringSelect');
-                if (coloringSelect && coloringSelect.value === 'hydrophobicity' && window.viewerInstance) {
-                    applyMolstarColoring('hydrophobicity', {{protCount}});
+                if (viewerUsesColoring('hydrophobicity') && window.viewerInstance) {
+                    changeVisibleRepresentationType({{protCount}}, window.viewerInstance);
                 }
             });
         }
@@ -910,9 +963,8 @@
             // Swap the 3D flexibility colouring data (for the current view); re-apply if the
             // viewer is currently coloured by flexibility.
             setFlexColoringForView(method).then(function () {
-                var coloringSelect = document.getElementById('coloringSelect');
-                if (coloringSelect && coloringSelect.value === 'flexibility' && window.viewerInstance) {
-                    applyMolstarColoring('flexibility', {{protCount}});
+                if (viewerUsesColoring('flexibility') && window.viewerInstance) {
+                    changeVisibleRepresentationType({{protCount}}, window.viewerInstance);
                 }
             });
         }

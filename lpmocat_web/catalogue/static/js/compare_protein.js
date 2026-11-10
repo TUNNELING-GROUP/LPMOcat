@@ -1301,6 +1301,87 @@ function groupColorOf(proteinIndex){
     return {r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16)};
 }
 
+// The viewer draws two layers, each with What (structural elements) / Proteins / Show as /
+// Colour by: Main (the protein; no element ticked = the whole protein) and Overlay (residues
+// drawn over it, as sticks by default). Both layers offer the same elements (input.layerElement,
+// data-layer = main | overlay, data-element):
+//   loop:L2 … loop:LC, core (core beta-strands), bindingSurface, bindingAromatics, brace,
+//   secondSphere, disulfides, sequons, holeHopping
+const SECOND_SPHERE_CATEGORIES = ['Axial position (to Cu)', 'Second-sphere motif', 'Shielding residue',
+                                  'Pi-pi stacking', 'Cation-pi', 'H-bond'];
+function layerElements(layer){
+    return [...document.querySelectorAll(`input.layerElement[data-layer="${layer}"]:checked`)].map(cb => cb.dataset.element);
+}
+// Indices of the proteins a layer draws (its Proteins menu, input.layerProtein)
+function layerProteins(layer){
+    return new Set([...document.querySelectorAll(`input.layerProtein[data-layer="${layer}"]:checked`)]
+        .map(cb => parseInt(cb.dataset.index, 10)));
+}
+// The menu's label: All proteins, None, or the codes ticked
+function updateLayerProteinsLabel(layer){
+    const menu = document.querySelector(`details.layer-proteins[data-layer="${layer}"]`);
+    if (!menu) return;
+    const boxes = [...menu.querySelectorAll('input.layerProtein')];
+    const names = boxes.filter(cb => cb.checked).map(cb => cb.dataset.name);
+    const label = names.length === boxes.length ? 'All proteins' : !names.length ? 'None'
+        : names.length <= 2 ? names.join(', ') : `${names.length} proteins`;
+    const summary = menu.querySelector('summary');
+    summary.textContent = label;
+    summary.title = names.join(', ');
+}
+function layerProteinsChanged(layer){
+    updateLayerProteinsLabel(layer);
+    if (window.viewerInstance) changeVisibleRepresentationType((window.protIdList || []).length, window.viewerInstance);
+}
+function setLayerProteins(layer, on){
+    document.querySelectorAll(`input.layerProtein[data-layer="${layer}"]`).forEach(cb => { cb.checked = on; });
+    layerProteinsChanged(layer);
+}
+window.layerProteinsChanged = layerProteinsChanged;
+window.setLayerProteins = setLayerProteins;
+// a layer's Proteins menu closes on a click outside it
+document.addEventListener('click', event => {
+    document.querySelectorAll('details.layer-proteins[open]').forEach(menu => {
+        if (!menu.contains(event.target)) menu.open = false;
+    });
+});
+// The residue numbers of protein pi in `elements`
+function elementResidues(molstarColoring, pi, elements){
+    const out = new Set();
+    const ofProtein = key => (molstarColoring[key] && molstarColoring[key][pi]) || [];
+    const fromRuns = runs => runs.forEach(run => {
+        for (let r = run['start_residue_number']; r <= run['end_residue_number']; r++) out.add(r);
+    });
+    const ofCategory = cat => (molstarColoring['sequence'][cat] && molstarColoring['sequence'][cat][pi]) || [];
+    elements.forEach(element => {
+        if (element.startsWith('loop:')) {
+            fromRuns(ofProtein('loopRegions').filter(run => run['group'] === element.slice(5)));
+        } else if (element === 'core' || element === 'bindingSurface' || element === 'disulfides') {
+            fromRuns(ofProtein(element === 'core' ? 'betaCore' : element));
+        } else if (element === 'bindingAromatics') {
+            (bindingAromaticNumbers()[pi] || []).forEach(r => out.add(r));
+        } else if (element === 'brace') {
+            ofCategory('brace').forEach(entry => out.add(entry['residue_number']));
+        } else if (element === 'secondSphere') {
+            SECOND_SPHERE_CATEGORIES.forEach(cat => ofCategory(cat).forEach(entry => out.add(entry['residue_number'])));
+        } else if (element === 'sequons') {
+            (sequonNumbers()[pi] || []).forEach(r => out.add(r));
+        } else if (element === 'holeHopping') {
+            // the residues on a path: those the hole-hopping colouring does not leave white
+            ofProtein('holeHopping').forEach(entry => {
+                const c = entry['color'];
+                if (!(c.r === 255 && c.g === 255 && c.b === 255)) out.add(entry['residue_number']);
+            });
+        }
+    });
+    return out;
+}
+// Whether either layer of the viewer is coloured by `option` (so a new scale / method re-colours it)
+function viewerUsesColoring(option){
+    return ['coloringSelect', 'overlayColoringSelect'].some(id => (document.getElementById(id) || {}).value === option);
+}
+window.viewerUsesColoring = viewerUsesColoring;
+
 async function initializeRepresentations(molstarColoring, instance, coloringOption, protCount){
 
     const isFirstLoad = (proteinLoadingTime === undefined);
@@ -1313,18 +1394,14 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
     const mainRepSel = document.getElementById('mainRepSelect');
     const mainRep = mainRepSel ? mainRepSel.value : 'cartoon';
 
-    // Read overlay checkbox state
-    const overlayCbs = [...document.querySelectorAll('input.proteinRepresentationCheckbox:checked')];
-    const overlayOn = name => overlayCbs.some(cb => cb.dataset.overlay === name);
-    const showBrace        = overlayOn('brace');
-    const showSecondSphere = overlayOn('secondSphere');
-    const showHoleHopping  = overlayOn('holeHopping');
-    const showBindingSurface = overlayOn('bindingSurface');
-    const showDisulfides = overlayOn('disulfides');
-    const showBindingAromatics = overlayOn('bindingAromatics');
-    const showSequons = overlayOn('sequons');
-    const colorOnlySticks = !!document.getElementById('colorOnlySticks')?.checked;
-    const stickLoops = new Set(overlayCbs.filter(cb => cb.dataset.overlay === 'loop').map(cb => cb.dataset.loop));
+    // The two layers: Main limited to its elements (unless none is ticked or the protein is
+    // kept whole), Overlay drawn over it
+    const mainElements = layerElements('main');
+    const mainProteins = layerProteins('main');
+    const overlayProteins = layerProteins('overlay');
+    const overlayElements = layerElements('overlay');
+    const overlayRep = document.getElementById('overlayRepSelect')?.value || 'cartoon';
+    const overlayColoring = document.getElementById('overlayColoringSelect')?.value || 'main';
 
     // Catalytic domain / full structure toggle
     const showFullStructure = document.getElementById('showFullStructure')?.checked || false;
@@ -1341,8 +1418,6 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
 
     for (let proteinIndex = 0; proteinIndex < protCount; proteinIndex++){
 
-        let mainData = [];
-
         // Effective residue limit: catalytic domain end or full length. Both this and
         // the residue numbers below are in the structure's own (original) numbering.
         const domainEnd = (molstarColoring['catalyticDomainEnd'] && molstarColoring['catalyticDomainEnd'][proteinIndex] != null)
@@ -1354,182 +1429,132 @@ async function initializeRepresentations(molstarColoring, instance, coloringOpti
         // start at 1 and may contain gaps, so never derive them from a loop index.
         const protResNums = (molstarColoring['residueNumbers'] && molstarColoring['residueNumbers'][proteinIndex]) || [];
 
-        if (mainRep !== 'none') {
-            if (coloringOption === 'group'){
-                // each protein in its group's colour (groups of the comparison, see groups.py)
-                const color = groupColorOf(proteinIndex);
-                for (const resNum of protResNums){
-                    if (resNum > resLimit) break;
-                    mainData.push({residue_number: resNum, representation: mainRep, representationColor: color});
-                }
-            } else if (coloringOption === 'none'){
-                for (const resNum of protResNums){
-                    if (resNum > resLimit) break;
-                    mainData.push({residue_number: resNum, representation: mainRep, representationColor: {r:255, g:255, b:255}});
-                }
-            } else if (coloringOption === 'sequence'){
-                let rawdata = [];
-                for (let j = 0; j < sequenceColoringOptions.length; j++){
-                    rawdata.push(...molstarColoring[coloringOption][sequenceColoringOptions[j]][proteinIndex]);
-                }
-                rawdata.sort((a,b) => a['residue_number'] - b['residue_number']);
+        // The entries of every residue up to resLimit in one colouring option, drawn as `rep`
+        const mainEntries = (option, rep) => {
+            const mainData = [];
+            const mainRep = rep;
+            if (mainRep !== 'none') {
+                if (option === 'group'){
+                    // each protein in its group's colour (groups of the comparison, see groups.py)
+                    const color = groupColorOf(proteinIndex);
+                    for (const resNum of protResNums){
+                        if (resNum > resLimit) break;
+                        mainData.push({residue_number: resNum, representation: mainRep, representationColor: color});
+                    }
+                } else if (option === 'none'){
+                    for (const resNum of protResNums){
+                        if (resNum > resLimit) break;
+                        mainData.push({residue_number: resNum, representation: mainRep, representationColor: {r:255, g:255, b:255}});
+                    }
+                } else if (option === 'sequence'){
+                    let rawdata = [];
+                    for (let j = 0; j < sequenceColoringOptions.length; j++){
+                        rawdata.push(...molstarColoring[option][sequenceColoringOptions[j]][proteinIndex]);
+                    }
+                    rawdata.sort((a,b) => a['residue_number'] - b['residue_number']);
 
-                // the Asn of the N-glycosylation sequons in dark slate (3D only; an Asn with an
-                // active-site role keeps that colour)
-                const sequons = new Set(sequonNumbers()[proteinIndex] || []);
-                let rawdataIndex = 0;
-                for (let pos = 0; pos < protResNums.length; pos++){
-                    const resNum = protResNums[pos];
-                    if (resNum > resLimit) break;
-                    if (rawdata.length > rawdataIndex && resNum == rawdata[rawdataIndex]['residue_number']){
-                        mainData.push({residue_number: resNum, representation: mainRep, representationColor: rawdata[rawdataIndex]['color']});
-                        rawdataIndex++;
-                    } else {
-                        mainData.push({residue_number: resNum, representation: mainRep,
-                                       representationColor: sequons.has(resNum) ? SEQUON_COLOR : {r:255, g:255, b:255}});
+                    // the Asn of the N-glycosylation sequons in dark slate (3D only; an Asn with an
+                    // active-site role keeps that colour)
+                    const sequons = new Set(sequonNumbers()[proteinIndex] || []);
+                    let rawdataIndex = 0;
+                    for (let pos = 0; pos < protResNums.length; pos++){
+                        const resNum = protResNums[pos];
+                        if (resNum > resLimit) break;
+                        if (rawdata.length > rawdataIndex && resNum == rawdata[rawdataIndex]['residue_number']){
+                            mainData.push({residue_number: resNum, representation: mainRep, representationColor: rawdata[rawdataIndex]['color']});
+                            rawdataIndex++;
+                        } else {
+                            mainData.push({residue_number: resNum, representation: mainRep,
+                                           representationColor: sequons.has(resNum) ? SEQUON_COLOR : {r:255, g:255, b:255}});
+                        }
+                    }
+
+                } else if (option === 'hydrophobicity' || option === 'flexibility' || option === 'charge' || option === 'holeHopping' || option === 'secondaryStructure' || option === 'rsa'){
+                    let chosenOptionArr = molstarColoring[option][proteinIndex];
+                    for (let k = 0; k < chosenOptionArr.length; k++){
+                        const resNum = chosenOptionArr[k]['residue_number'];
+                        if (resNum > resLimit) break;
+                        mainData.push({residue_number: resNum, representation: mainRep, representationColor: chosenOptionArr[k]['color']});
+                    }
+
+                } else if (option === 'bindingSurface'){
+                    let bindingSurface = molstarColoring['bindingSurface'][proteinIndex];
+                    let bindingSurfaceIndex = 0;
+                    for (let pos = 0; pos < protResNums.length; pos++){
+                        const residueId = protResNums[pos];
+                        if (residueId > resLimit) break;
+                        if (bindingSurface.length === 0){
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
+                            continue;
+                        }
+                        if (residueId > bindingSurface[bindingSurfaceIndex]['end_residue_number'] && bindingSurfaceIndex < bindingSurface.length - 1){
+                            bindingSurfaceIndex++;
+                        }
+                        if (residueId >= bindingSurface[bindingSurfaceIndex]['start_residue_number'] && residueId <= bindingSurface[bindingSurfaceIndex]['end_residue_number']){
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: bindingSurface[bindingSurfaceIndex]['color']});
+                        } else {
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
+                        }
+                    }
+
+                } else if (option === 'loopRegions'){
+                    let loopRegions = molstarColoring['loopRegions'][proteinIndex];
+                    let loopRegionIndex = 0;
+                    for (let pos = 0; pos < protResNums.length; pos++){
+                        const residueId = protResNums[pos];
+                        if (residueId > resLimit) break;
+                        if (loopRegions.length === 0){
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
+                            continue;
+                        }
+                        if (residueId > loopRegions[loopRegionIndex]['end_residue_number'] && loopRegionIndex < loopRegions.length - 1){
+                            loopRegionIndex++;
+                        }
+                        if (residueId >= loopRegions[loopRegionIndex]['start_residue_number'] && residueId <= loopRegions[loopRegionIndex]['end_residue_number']){
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: loopRegions[loopRegionIndex]['color']});
+                        } else {
+                            mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
+                        }
                     }
                 }
+            } // end mainRep !== 'none'
+            return mainData;
+        };
+        // Main: the whole protein, or only its ticked elements (none for a protein it leaves out)
+        let mainData = mainProteins.has(proteinIndex) ? mainEntries(coloringOption, mainRep) : [];
+        if (mainElements.length) {
+            const keep = elementResidues(molstarColoring, proteinIndex, mainElements);
+            mainData = mainData.filter(entry => keep.has(entry.residue_number));
+        }
 
-            } else if (coloringOption === 'hydrophobicity' || coloringOption === 'flexibility' || coloringOption === 'charge' || coloringOption === 'holeHopping' || coloringOption === 'secondaryStructure' || coloringOption === 'rsa'){
-                let chosenOptionArr = molstarColoring[coloringOption][proteinIndex];
-                for (let k = 0; k < chosenOptionArr.length; k++){
-                    const resNum = chosenOptionArr[k]['residue_number'];
-                    if (resNum > resLimit) break;
-                    mainData.push({residue_number: resNum, representation: mainRep, representationColor: chosenOptionArr[k]['color']});
-                }
-
-            } else if (coloringOption === 'bindingSurface'){
-                let bindingSurface = molstarColoring['bindingSurface'][proteinIndex];
-                let bindingSurfaceIndex = 0;
-                for (let pos = 0; pos < protResNums.length; pos++){
-                    const residueId = protResNums[pos];
-                    if (residueId > resLimit) break;
-                    if (bindingSurface.length === 0){
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
-                        continue;
-                    }
-                    if (residueId > bindingSurface[bindingSurfaceIndex]['end_residue_number'] && bindingSurfaceIndex < bindingSurface.length - 1){
-                        bindingSurfaceIndex++;
-                    }
-                    if (residueId >= bindingSurface[bindingSurfaceIndex]['start_residue_number'] && residueId <= bindingSurface[bindingSurfaceIndex]['end_residue_number']){
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: bindingSurface[bindingSurfaceIndex]['color']});
-                    } else {
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
-                    }
-                }
-
-            } else if (coloringOption === 'loopRegions'){
-                let loopRegions = molstarColoring['loopRegions'][proteinIndex];
-                let loopRegionIndex = 0;
-                for (let pos = 0; pos < protResNums.length; pos++){
-                    const residueId = protResNums[pos];
-                    if (residueId > resLimit) break;
-                    if (loopRegions.length === 0){
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
-                        continue;
-                    }
-                    if (residueId > loopRegions[loopRegionIndex]['end_residue_number'] && loopRegionIndex < loopRegions.length - 1){
-                        loopRegionIndex++;
-                    }
-                    if (residueId >= loopRegions[loopRegionIndex]['start_residue_number'] && residueId <= loopRegions[loopRegionIndex]['end_residue_number']){
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: loopRegions[loopRegionIndex]['color']});
-                    } else {
-                        mainData.push({residue_number: residueId, representation: mainRep, representationColor: {r:255,g:255,b:255}});
-                    }
-                }
-            }
-        } // end mainRep !== 'none'
-        const mainCount = mainData.length;   // the main representation's entries come first
-
-        // Active site metal ion shown as ball-and-stick — but hidden too when the
-        // representation is "None" (so "None" leaves the viewer empty of that protein).
+        // Active site metal ion shown as ball-and-stick whenever a layer draws the protein (the
+        // main layer as "None" and no overlay leave the viewer empty of it)
         const metalResNum = molstarColoring['metalResidueNumbers'] && molstarColoring['metalResidueNumbers'][proteinIndex];
-        if (metalResNum != null && mainRep !== 'none') {
+        const drawn = (mainRep !== 'none' && mainProteins.has(proteinIndex))
+            || (overlayElements.length && overlayProteins.has(proteinIndex));
+        if (metalResNum != null && drawn) {
             mainData.push({residue_number: metalResNum, representation: 'ball-and-stick'});
         }
 
-        // Histidine brace overlay
-        if (showBrace) {
-            let braceData = molstarColoring['sequence']['brace'][proteinIndex];
-            for (let i = 0; i < braceData.length; i++){
-                mainData.push({residue_number: braceData[i]['residue_number'], representation: 'ball-and-stick'});
+        // Overlay: the ticked elements as `overlayRep`, in the main colouring or one of its own
+        // (the catalytic domain only unless the full length is shown, so a disulfide of a CBM
+        // stays out)
+        if (overlayElements.length && overlayProteins.has(proteinIndex)) {
+            const residues = elementResidues(molstarColoring, proteinIndex, overlayElements);
+            // drawn as the main layer is (cartoon over cartoon), the overlay replaces those
+            // residues of the main layer instead of a second copy on top
+            if (overlayRep === mainRep) {
+                mainData = mainData.filter(entry => entry.representation !== mainRep || !residues.has(entry.residue_number));
             }
-        }
-
-        // Second-sphere overlay
-        if (showSecondSphere) {
-            const ssCategories = ['Axial position (to Cu)', 'Second-sphere motif', 'Shielding residue',
-                                  'Pi-pi stacking', 'Cation-pi', 'H-bond'];
-            for (let cat of ssCategories){
-                let catData = molstarColoring['sequence'][cat] && molstarColoring['sequence'][cat][proteinIndex]
-                    ? molstarColoring['sequence'][cat][proteinIndex] : [];
-                for (let i = 0; i < catData.length; i++){
-                    mainData.push({residue_number: catData[i]['residue_number'], representation: 'ball-and-stick'});
-                }
-            }
-        }
-
-        // Hole-hopping overlay
-        if (showHoleHopping && molstarColoring['holeHopping'] && molstarColoring['holeHopping'][proteinIndex]) {
-            // The residues on a path are the ones the hole-hopping colouring does not leave
-            // white; as sticks they take the chosen colouring, like the other sets
-            let hhData = molstarColoring['holeHopping'][proteinIndex];
-            for (let i = 0; i < hhData.length; i++){
-                let c = hhData[i]['color'];
-                if (!(c.r === 255 && c.g === 255 && c.b === 255)){
-                    mainData.push({residue_number: hhData[i]['residue_number'], representation: 'ball-and-stick'});
-                }
-            }
-        }
-
-        // Binding-surface, disulfide and loop overlays: runs of residue numbers (start..end in
-        // the structure's numbering), so take the structure's residues inside each run -- up to
-        // the catalytic domain end unless the full length is shown (a bond of a CBM is outside)
-        const sticksInRuns = (runs) => {
-            for (const run of runs || []){
-                for (const resNum of protResNums){
-                    if (resNum > resLimit) break;
-                    if (resNum >= run['start_residue_number'] && resNum <= run['end_residue_number']){
-                        mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
-                    }
-                }
-            }
-        };
-        if (showBindingSurface && molstarColoring['bindingSurface']) {
-            sticksInRuns(molstarColoring['bindingSurface'][proteinIndex]);
-        }
-        if (showBindingAromatics) {
-            (bindingAromaticNumbers()[proteinIndex] || []).filter(resNum => resNum <= resLimit).forEach(resNum => {
-                mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
-            });
-        }
-        if (showSequons) {
-            (sequonNumbers()[proteinIndex] || []).filter(resNum => resNum <= resLimit).forEach(resNum => {
-                mainData.push({residue_number: resNum, representation: 'ball-and-stick'});
-            });
-        }
-        if (showDisulfides && molstarColoring['disulfides']) {
-            sticksInRuns(molstarColoring['disulfides'][proteinIndex]);
-        }
-        if (stickLoops.size && molstarColoring['loopRegions']) {
-            sticksInRuns((molstarColoring['loopRegions'][proteinIndex] || []).filter(run => stickLoops.has(run['group'])));
-        }
-
-        // "Colour only the sticks": the main representation white, the sticks in the colour
-        // their residue has in the chosen colouring (the metal keeps its own)
-        if (colorOnlySticks && mainCount) {
             const colorOf = new Map();
-            for (let k = 0; k < mainCount; k++){
-                const entry = mainData[k];
-                if (entry.representationColor) colorOf.set(entry.residue_number, entry.representationColor);
-                mainData[k] = Object.assign({}, entry, {representationColor: {r:255, g:255, b:255}});
-            }
-            for (let k = mainCount; k < mainData.length; k++){
-                const entry = mainData[k];
-                if (!entry.representationColor && entry.residue_number !== metalResNum && colorOf.has(entry.residue_number)){
-                    mainData[k] = Object.assign({}, entry, {representationColor: colorOf.get(entry.residue_number)});
-                }
-            }
+            mainEntries(overlayColoring === 'main' ? coloringOption : overlayColoring, 'cartoon')
+                .forEach(entry => colorOf.set(entry.residue_number, entry.representationColor));
+            [...residues].sort((a, b) => a - b).forEach(resNum => {
+                if (resNum > resLimit || resNum === metalResNum) return;
+                const entry = {residue_number: resNum, representation: overlayRep};
+                if (colorOf.get(resNum)) entry.representationColor = colorOf.get(resNum);
+                mainData.push(entry);
+            });
         }
 
         allData.push(mainData);
@@ -2721,6 +2746,21 @@ function colorStructureBy(opt){
     applyMolstarColoring(opt, protCount);
 }
 window.colorStructureBy = colorStructureBy;
+
+// The viewer column is sticky beside the plots. Taller than the window (the viewer and its
+// controls), it scrolls with the page until its bottom is in view and sticks there, so the
+// controls stay reachable; shorter, it sticks 20 px below the top.
+function fitStickyViewer(){
+    const el = document.querySelector('.viewer-container');
+    if (el) el.style.top = Math.min(20, window.innerHeight - el.offsetHeight - 20) + 'px';
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.querySelector('.viewer-container');
+    if (!el) return;
+    fitStickyViewer();
+    window.addEventListener('resize', fitStickyViewer);
+    if (window.ResizeObserver) new ResizeObserver(fitStickyViewer).observe(el);
+});
 
 console.log('compare_protein.js file loaded');
 

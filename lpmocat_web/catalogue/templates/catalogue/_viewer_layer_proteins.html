@@ -1,0 +1,11 @@
+{# Which proteins one layer of the 3D viewer draws (layer = main | overlay); read by compare_protein.js (layerProteins) #}
+<details class="layer-proteins" data-layer="{{ layer }}">
+    <summary class="viewerSelect">All proteins</summary>
+    <div class="layer-proteins-panel">
+        <div class="visibility-actions">
+            <button type="button" onclick="setLayerProteins('{{ layer }}', true)">All</button>
+            <button type="button" onclick="setLayerProteins('{{ layer }}', false)">None</button>
+        </div>
+        {% for prot in protein_records %}<label><input type="checkbox" class="layerProtein" data-layer="{{ layer }}" data-index="{{ forloop.counter0 }}" data-name="{{ prot.protein_code }}" checked onchange="layerProteinsChanged('{{ layer }}')"> {{ prot.protein_code }}</label>{% endfor %}
+    </div>
+</details>
