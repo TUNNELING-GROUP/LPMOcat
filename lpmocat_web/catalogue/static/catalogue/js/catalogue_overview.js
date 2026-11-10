@@ -718,11 +718,17 @@
         const familySize = f => ofFamily(proteins, f).length;
         const medianOf = (list, panel) => (list.length ? median(list.map(panel.value)) : null);
 
+        // panels side by side share their scales: one bin width and one set of bins over the
+        // values of all panels, so the bars line up and the x and y axes can be matched
+        const valuesOf = panel => proteins.concat(rest).filter(measuredIn(panel)).map(panel.value);
+        const pooled = panels.flatMap(valuesOf);
+        const sharedWidth = panels[0].binWidth || (pooled.length ? niceBinWidth(pooled, panels[0].maxBins) : 1);
         const prepared = panels.map(panel => {
             const measured = proteins.filter(measuredIn(panel));
             const restMeasured = rest.filter(measuredIn(panel));
-            const values = measured.concat(restMeasured).map(panel.value);
-            const binWidth = panel.binWidth || (values.length ? niceBinWidth(values, panel.maxBins) : 1);
+            const values = multi ? pooled : measured.concat(restMeasured).map(panel.value);
+            const binWidth = multi ? sharedWidth
+                : panel.binWidth || (values.length ? niceBinWidth(values, panel.maxBins) : 1);
             const lo = values.length ? tidy(Math.floor(Math.min(...values) / binWidth) * binWidth) : 0;
             const nBins = values.length ? Math.floor((Math.max(...values) - lo) / binWidth + 1e-9) + 1 : 0;
             const bins = Array.from({ length: nBins }, (_, i) => ({ start: tidy(lo + i * binWidth), proteins: [], rest: [] }));
@@ -748,7 +754,8 @@
         };
         const named = (panel, text) => (multi ? `${panel.name} · ${text}` : text);
 
-        // axes of panel i: x/y, x2/y2, ... side by side; with shareY the y axes follow the first
+        // axes of panel i: x/y, x2/y2, ... side by side; the x axes and (with shareY) the y axes
+        // follow the first, so every panel has the same scales
         const gap = multi ? 0.035 : 0;
         const width = (1 - gap * (panels.length - 1)) / panels.length;
         const axisRef = (i, letter) => (i ? `${letter}${i + 1}` : letter);
@@ -760,6 +767,7 @@
                 axes[axisKey(i, 'x')] = {
                     ...AXIS, domain: [left, left + width], anchor: axisRef(i, 'y'),
                     ...(multi ? { nticks: 4 } : {}),
+                    ...(i ? { matches: 'x' } : {}),
                     ...(panel.zeroline ? { zeroline: true, zerolinecolor: '#9a9a9a', zerolinewidth: 1 } : {}),
                     ...x(i),
                 };
@@ -821,7 +829,7 @@
                     annotations: panelTitles(),
                     ...panelAxes(i => ({ showgrid: false, ...xTitle(i) }),
                                  i => ({ rangemode: 'tozero', nticks: 5, ...(i ? {} : { title: axisTitle('Proteins') }) }),
-                                 false),
+                                 true),
                 }),
             };
         }
@@ -1185,9 +1193,8 @@
                     : 'substrate-binding: touched by a plane laid on the copper face'}`)
                 + '; a family without dots or bars in a panel lacks that loop',
             chart: distributionChart({
-                // binding-surface counts run 0-15, so one bar per residue, the same width in
-                // every panel; loop lengths (to 113) and surface counts (to 50) keep the width
-                // niceBinWidth picks for their panel
+                // binding-surface counts run 0-15, so one bar per residue; loop lengths (to 113)
+                // and surface counts (to 50) take the width niceBinWidth picks for all panels
                 panels: loopPanels((p, loop) => (which === 'all' ? p.loops[loop][0]
                     : pick(loopValues(p, loop).residues)),
                     which !== 'all', which === 'binding' ? { binWidth: 1 } : {}),
