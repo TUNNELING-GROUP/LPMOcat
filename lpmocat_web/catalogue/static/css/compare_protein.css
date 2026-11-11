@@ -738,8 +738,7 @@ plotContainer > div {
     height: 100% !important;
 }
 
-/* sticky beside the plots; its own height (the viewer and its controls): when taller than the
-   window, fitStickyViewer (compare_protein.js) lowers `top` so its bottom stays in view */
+/* beside the plots, scrolling on its own (compare_layout.css: .ViewerAndPlotsContainer) */
 .viewer-container {
     position: sticky;
     top: 20px;

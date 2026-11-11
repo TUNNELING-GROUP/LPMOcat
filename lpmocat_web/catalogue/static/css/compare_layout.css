@@ -309,9 +309,29 @@ h2.cmp-card-title {
     color: #333;
 }
 
-/* Viewer and plots side by side */
+/* Viewer and plots side by side, in an area as high as the window where each side scrolls
+   on its own: opening many plots makes only the right side longer, and the 3D viewer stays
+   where it is (scroll the left side for its controls) */
 .ViewerAndPlotsContainer {
     gap: 14px;
+    height: calc(100vh - 24px);
+    align-items: stretch;
+}
+
+.ViewerAndPlotsContainer > .viewer-container,
+.ViewerAndPlotsContainer > .plotContainer {
+    position: relative;
+    top: auto;
+    height: 100%;
+    min-height: 0;
+    margin-bottom: 0;
+    align-self: stretch;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+}
+
+.ViewerAndPlotsContainer > .viewer-container > div {
+    margin-bottom: 0;
 }
 
 .viewerCard {

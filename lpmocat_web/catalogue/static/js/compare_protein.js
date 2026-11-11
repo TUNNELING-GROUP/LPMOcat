@@ -308,16 +308,19 @@ function updateFloatingHScroll() {
     let best = null;
     _hScrollGroups().forEach(function (members) {
         let maxBottom = -Infinity, ref = null, onScreen = 0;
+        // the plot columns scroll inside the plots pane: what lies below its edge is out of view
+        const pane = members[0].closest('.plotContainer');
+        const limit = pane ? Math.min(vh, pane.getBoundingClientRect().bottom) : vh;
         members.forEach(function (c) {
             const r = c.getBoundingClientRect();
             if (r.bottom > maxBottom) maxBottom = r.bottom;
-            if (!ref && r.top < vh && r.bottom > 0) ref = c;   // first one intersecting the viewport
-            onScreen += Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+            if (!ref && r.top < limit && r.bottom > 0) ref = c;   // first one intersecting the view
+            onScreen += Math.max(0, Math.min(r.bottom, limit) - Math.max(r.top, 0));
         });
         // Nothing of this group on screen (e.g. reading the selection overview above the plots),
         // or its own scrollbar is already visible: it does not need the floating bar.
-        if (!ref || maxBottom <= vh - 2) return;
-        if (!best || onScreen > best.onScreen) best = { ref: ref, members: members, onScreen: onScreen };
+        if (!ref || maxBottom <= limit - 2) return;
+        if (!best || onScreen > best.onScreen) best = { ref: ref, members: members, onScreen: onScreen, limit: limit };
     });
     if (!best) { fs.style.display = 'none'; _hsMembers = []; return; }
     const ref = best.ref;
@@ -325,6 +328,7 @@ function updateFloatingHScroll() {
     const r = ref.getBoundingClientRect();
     const wasHidden = (fs.style.display === 'none' || !fs.style.display);
     fs.style.left = r.left + 'px';
+    fs.style.bottom = Math.max(0, vh - best.limit) + 'px';   // at the pane's lower edge
     fs.style.width = r.width + 'px';
     const inner = fs.firstChild;
     const w = ref.scrollWidth + 'px';
@@ -2746,21 +2750,6 @@ function colorStructureBy(opt){
     applyMolstarColoring(opt, protCount);
 }
 window.colorStructureBy = colorStructureBy;
-
-// The viewer column is sticky beside the plots. Taller than the window (the viewer and its
-// controls), it scrolls with the page until its bottom is in view and sticks there, so the
-// controls stay reachable; shorter, it sticks 20 px below the top.
-function fitStickyViewer(){
-    const el = document.querySelector('.viewer-container');
-    if (el) el.style.top = Math.min(20, window.innerHeight - el.offsetHeight - 20) + 'px';
-}
-document.addEventListener('DOMContentLoaded', () => {
-    const el = document.querySelector('.viewer-container');
-    if (!el) return;
-    fitStickyViewer();
-    window.addEventListener('resize', fitStickyViewer);
-    if (window.ResizeObserver) new ResizeObserver(fitStickyViewer).observe(el);
-});
 
 console.log('compare_protein.js file loaded');
 
