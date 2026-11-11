@@ -1,7 +1,7 @@
 """Build the About page's LPMO illustration images from the layered PowerPoint export.
 
 The export (about_page.svg + layers/*.webp, transparent backgrounds) is the package in
-about-illustration/about-illustration/ (not in git). Its layout is copied by hand into
+about-illustration/ next to the repository (not in git). Its layout is copied by hand into
 templates/catalogue/_lpmo_graphic.html; this script makes the images that layout shows, in
 static/images/lpmo_illustration/:
 
@@ -27,7 +27,7 @@ from PIL import Image, ImageFilter
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'about-illustration' / 'about-illustration' / 'layers'
+SOURCE = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / 'about-illustration' / 'layers'
 OUT = ROOT / 'lpmocat_web' / 'catalogue' / 'static' / 'images' / 'lpmo_illustration'
 SCALE = 0.5
 QUALITY = 82
