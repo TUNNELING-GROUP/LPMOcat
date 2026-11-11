@@ -707,8 +707,7 @@
 }
 
 /* About page: the "About LPMOs" and "What each protein comes with" cards stacked on the left,
-   the LPMO graphic in its own card on the right; the coloured terms match the graphic's insets
-   (the binding-surface blue is darker than the graphic's #89b8e7, which is too light for text) */
+   the LPMO figure on the right; a coloured term of the text shows its feature in the figure */
 .about-top {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
@@ -730,53 +729,112 @@
 .about-lpmo-figure {
     margin: 0;
     display: flex;
-    align-items: center;    /* the card is as tall as the two text cards; the graphic sits in its middle */
-    justify-content: center;
+    flex-direction: column;
+    justify-content: center;    /* the column is as tall as the two text cards; the figure sits in its middle */
 }
 
-.about-lpmo-figure .lpmo-graphic {
+/* The LPMO illustration (_lpmo_graphic.html, an inline SVG): the protein, connector arrows and
+   three panels (data-feat site | hh | surface). A feature shown (data-hl on .about-top, set by
+   home.html): its panel and arrow stay, the others fade; the protein crossfades from plain to that
+   feature's layer; the hole-hopping arrows come in by path (.li-on, home.html); the binding
+   surface fades to the loops beneath it */
+.lpmo-illustration {
     display: block;
-    flex: 1 1 auto;
     width: 100%;
     height: auto;
+    overflow: visible;
 }
 
-/* A coloured term of the text and its inset highlight each other: home.html sets data-hl on
-   .about-top to the hovered or focused feature (site | surface | hh); the other insets fade */
-.lg-feat {
+.lpmo-illustration text {
+    font-family: inherit;
+    font-weight: 700;
+}
+
+.lpmo-illustration .li-label text {
+    font-size: 67px;
+}
+
+.li-plain,
+.li-state,
+.li-step,
+.li-fadeout,
+.li-panel,
+.li-connector {
+    transition: opacity 0.35s ease;
+}
+
+.li-panel {
     outline: none;
-    transition: opacity 0.15s;
+    cursor: default;
 }
 
-.lg-frame,
-.lg-band {
-    transition: stroke-width 0.15s, fill-opacity 0.15s;
+.li-frame {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-width 0.25s;
 }
 
-.about-top[data-hl] .lg-feat {
-    opacity: 0.3;
+.li-state,
+.li-step {
+    opacity: 0;
 }
 
-.about-top[data-hl="site"] .lg-feat[data-feat="site"],
-.about-top[data-hl="surface"] .lg-feat[data-feat="surface"],
-.about-top[data-hl="hh"] .lg-feat[data-feat="hh"] {
+.li-step.li-on {
     opacity: 1;
 }
 
-.about-top[data-hl="site"] .lg-feat[data-feat="site"] .lg-frame,
-.about-top[data-hl="surface"] .lg-feat[data-feat="surface"] .lg-frame,
-.about-top[data-hl="hh"] .lg-feat[data-feat="hh"] .lg-frame {
-    stroke-width: 26;
+.about-top[data-hl] .li-plain {
+    opacity: 0;
 }
 
-.about-top[data-hl="surface"] .lg-band {
-    fill-opacity: 0.85;    /* the binding face on the main structure */
+.about-top[data-hl="site"] .li-state[data-state="site"],
+.about-top[data-hl="hh"] .li-state[data-state="hh"],
+.about-top[data-hl="surface"] .li-state[data-state="surface"] {
+    opacity: 1;
 }
 
-.about-top[data-hl="site"] .lg-band,
-.about-top[data-hl="hh"] .lg-band {
-    fill-opacity: 0.15;
+.about-top[data-hl="surface"] .li-fadeout {
+    opacity: 0;
 }
+
+.about-top[data-hl] .li-panel,
+.about-top[data-hl] .li-connector {
+    opacity: 0.3;
+}
+
+.about-top[data-hl="site"] .li-panel[data-feat="site"],
+.about-top[data-hl="hh"] .li-panel[data-feat="hh"],
+.about-top[data-hl="surface"] .li-panel[data-feat="surface"],
+.about-top[data-hl="site"] .li-connector[data-feat-of="site"],
+.about-top[data-hl="hh"] .li-connector[data-feat-of="hh"],
+.about-top[data-hl="surface"] .li-connector[data-feat-of="surface"] {
+    opacity: 1;
+}
+
+.about-top[data-hl="site"] .li-panel[data-feat="site"] .li-frame,
+.about-top[data-hl="hh"] .li-panel[data-feat="hh"] .li-frame,
+.about-top[data-hl="surface"] .li-panel[data-feat="surface"] .li-frame {
+    stroke-width: 24;
+}
+
+/* The build-up on load (.li-intro set by the template's inline script, .li-ready a frame later,
+   .li-intro removed when done, so later hovers have no delays): the protein fades in, the arrows
+   appear, the frames draw, then the panels' pictures and labels */
+.lpmo-illustration.li-intro:not(.li-ready) .li-plain,
+.lpmo-illustration.li-intro:not(.li-ready) .li-connector,
+.lpmo-illustration.li-intro:not(.li-ready) .li-panel > :not(.li-frame):not(.li-step) {
+    opacity: 0;
+}
+
+.lpmo-illustration.li-intro:not(.li-ready) .li-frame {
+    stroke-dashoffset: 1;
+}
+
+.lpmo-illustration.li-intro.li-ready .li-plain { transition: opacity 0.6s ease; }
+.lpmo-illustration.li-intro.li-ready .li-connector { transition: opacity 0.5s ease 0.5s; }
+.lpmo-illustration.li-intro.li-ready .li-frame { transition: stroke-dashoffset 0.8s ease-in-out 0.8s; }
+.lpmo-illustration.li-intro.li-ready .li-panel > :not(.li-frame):not(.li-step) { transition: opacity 0.5s ease 1.4s; }
+.lpmo-illustration.li-intro.li-ready .li-panel > .li-label { transition: opacity 0.5s ease 1.7s; }
 
 .feat {
     font-weight: 600;

@@ -263,13 +263,30 @@
         })();
     </script>
     <script>
-        // "About LPMOs": a coloured term and its inset in the graphic highlight each other
+        // "About LPMOs": a coloured term or a panel of the LPMO illustration shows its feature: the
+        // other panels fade, the protein shows the feature (CSS, data-hl), and the panel's steps
+        // (.li-step, the hole-hopping paths) come in by their data-step, STEP_MS apart; leaving puts
+        // the illustration back. Reduced motion: all steps at once.
         (function () {
             const top = document.querySelector('.about-top');
             if (!top) return;
+            const steps = [...top.querySelectorAll('.lpmo-illustration .li-step')];
+            const STEP_MS = 600;
+            const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let timers = [];
+            const show = function (state) {
+                timers.forEach(clearTimeout);
+                timers = [];
+                steps.forEach(function (step) {
+                    step.classList.remove('li-on');
+                    if (!state || step.closest('[data-feat]').dataset.feat !== state) return;
+                    const delay = still ? 0 : (Number(step.dataset.step) - 1) * STEP_MS + 250;
+                    timers.push(setTimeout(function () { step.classList.add('li-on'); }, delay));
+                });
+            };
             top.querySelectorAll('[data-feat]').forEach(function (el) {
-                const on = function () { top.dataset.hl = el.dataset.feat; };
-                const off = function () { delete top.dataset.hl; };
+                const on = function () { top.dataset.hl = el.dataset.feat; show(el.dataset.feat); };
+                const off = function () { delete top.dataset.hl; show(null); };
                 el.addEventListener('mouseenter', on);
                 el.addEventListener('focus', on);
                 el.addEventListener('mouseleave', off);
