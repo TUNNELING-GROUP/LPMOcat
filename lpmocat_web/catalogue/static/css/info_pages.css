@@ -886,7 +886,7 @@
 .loop-l8 { color: rgb(30, 144, 255); }
 .loop-lc { color: rgb(34, 139, 34); }
 
-/* How to use: the video (16:9); until it exists, an empty frame */
+/* How to use: the video (16:9, a YouTube embed); .video-placeholder = an empty frame */
 .video-frame {
     position: relative;
     width: 100%;

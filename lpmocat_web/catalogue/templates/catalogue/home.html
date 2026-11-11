@@ -90,7 +90,14 @@
                 <h2 class="section-title">How to use</h2>
                 <div class="info-card-sub">Browsing the catalogue, selecting proteins and comparing them</div>
             </div>
-            <div class="video-frame video-placeholder">Video coming soon</div>
+            <div class="video-frame">
+                <iframe id="howToUseVideo"
+                        data-src="https://www.youtube-nocookie.com/embed/XKXWlRJ4AFg?rel=0&amp;autoplay=1&amp;mute=1&amp;playsinline=1"
+                        title="LPMOcat: how to use"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowfullscreen></iframe>
+            </div>
         </section>
 
         <section class="info-card" id="how-built">
@@ -292,6 +299,20 @@
                 el.addEventListener('mouseleave', off);
                 el.addEventListener('blur', off);
             });
+        })();
+
+        // How to use: the video loads, and so starts playing (muted: browsers block autoplay with
+        // sound; the video has none), once half of it is in the window. Without IntersectionObserver
+        // it loads at once.
+        (function () {
+            const video = document.getElementById('howToUseVideo');
+            if (!video) return;
+            const load = function () { if (!video.src) video.src = video.dataset.src; };
+            if (!('IntersectionObserver' in window)) { load(); return; }
+            const seen = new IntersectionObserver(function (entries) {
+                if (entries.some(function (e) { return e.isIntersecting; })) { load(); seen.disconnect(); }
+            }, {threshold: 0.5});
+            seen.observe(video);
         })();
 
         function updateActiveUsers(){
