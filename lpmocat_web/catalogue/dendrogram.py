@@ -155,7 +155,7 @@ class DendrogramHandler:
             protein = Protein.objects.get(protein_code=protein_code)
             substrates = ", ".join([s.name for s in protein.substrate.all()]) or "Unknown"
             mass_kda = polypeptide_kda(protein.sequence)   # polypeptide mass of the structure sequence
-            from .views import _catalytic_domain_length   # same catalytic length as the results table
+            from .views import _catalytic_domain_length, catalytic_fasta   # same catalytic length as the results table
             from .overview import _lineage, lineage_text, regioselectivity_label  # lineage (step 2i), C1/C4
             catalytic_length = _catalytic_domain_length(protein)
             
@@ -222,7 +222,9 @@ class DendrogramHandler:
                 'associated_CBMs': protein.associated_CBMs or '',
                 'uniprot': protein.uniprot or '',
                 'uniparc': getattr(protein, 'uniparc', None) or '',
-                'total_charge': total_charge
+                'total_charge': total_charge,
+                # the tooltip's "Copy": the catalytic-domain FASTA (as /catalogue/sequence/<code>/)
+                'catalytic_fasta': catalytic_fasta(protein),
             }
         except Protein.DoesNotExist:
             return {

@@ -212,6 +212,36 @@ class CircularDendrogram {
             .style("box-shadow", "0 4px 12px rgba(0,0,0,0.3)")
             .style("border", "1px solid rgba(255,255,255,0.1)");
             
+        // "Copy" in a protein tooltip: the catalytic-domain FASTA to the clipboard
+        this.tooltip.on("click", (event) => {
+            const link = event.target.closest && event.target.closest('.copy-sequence');
+            if (!link) return;
+            event.preventDefault();
+            const info = this.proteinInfo[this.tooltipFor] || {};
+            const done = (ok) => {
+                link.textContent = ok ? 'Copied' : 'Copy failed';
+                setTimeout(() => { link.textContent = 'Copy'; }, 1500);
+            };
+            // navigator.clipboard exists on https and localhost only; else a hidden textarea
+            const fallback = () => {
+                const area = document.createElement('textarea');
+                area.value = info.catalytic_fasta || '';
+                area.style.position = 'fixed';
+                area.style.opacity = '0';
+                document.body.appendChild(area);
+                area.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                area.remove();
+                done(ok);
+            };
+            if (!info.catalytic_fasta) return done(false);
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(info.catalytic_fasta).then(() => done(true), fallback);
+            } else {
+                fallback();
+            }
+        });
         this.tooltip.on("mouseenter", () => this.cancelHideTooltip());
         this.tooltip.on("mouseleave", () => this.scheduleHideTooltip());
     }
@@ -623,6 +653,7 @@ class CircularDendrogram {
 
         const info = this.proteinInfo[d.data.name];
         const proteinUrl = `/catalogue/compare/proteins/${info.code}/`;
+        const sequenceUrl = `/catalogue/sequence/${encodeURIComponent(info.code)}/`;
         
         // Handle nan values for substrates, regioselectivity, and structure
         const substrates = (info.substrates && info.substrates.toLowerCase() !== 'nan') ? info.substrates : '';
@@ -686,6 +717,9 @@ class CircularDendrogram {
             <strong>Substrates:</strong> ${substrates}<br/>
             <strong>Regioselectivity:</strong> ${regioselectivity}<br/>
             <strong>Associated CBMs:</strong> ${associated_CBMs}<br/>
+            <strong>Sequence:</strong>
+            <a href="${sequenceUrl}" target="_blank" style="color: #569976; text-decoration: underline;">View FASTA</a> ·
+            <a href="#" class="copy-sequence" title="Copy the catalytic-domain sequence (FASTA)" style="color: #569976; text-decoration: underline;">Copy</a><br/>
             <a href="${proteinUrl}" target="_blank" style="color: #569976; text-decoration: underline; font-weight: bold;">
                 Show this protein →
             </a>

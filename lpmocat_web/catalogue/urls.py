@@ -19,6 +19,7 @@ urlpatterns = [
     # Downloads
     path('download/pdb-structures/', views.download_pdb_structures, name="download_pdb_structures"),
     path('download/alignment/', views.download_alignment, name="download_alignment"),
+    path('sequence/<str:code>/', views.protein_sequence_fasta, name="protein_sequence_fasta"),
     path('download/comparison/', views.download_comparison, name="download_comparison"),
     path('downloads/', views.downloads_page, name="downloads"),
     path('downloads/<str:name>', views.download_file, name="download_file"),

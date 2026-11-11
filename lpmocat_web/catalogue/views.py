@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.http import FileResponse, HttpResponse, Http404, JsonResponse
 from django.template import loader
@@ -1456,6 +1456,8 @@ def compare_proteins(request, protein_ids):
             'clade': clean_value(protein.clade.name if protein.clade else ''),
             'catalytic_length': _catalytic_domain_length(protein) or '',
             'sequence_length': protein.sequence_length if protein.sequence_length is not None else 0,
+            'code': _code,
+            'catalytic_fasta': catalytic_fasta(protein),   # the Sequence column's "Copy" and CSV
             'catalytic_mass': _kda_text(_protein_masses(protein)[0]),
             'sequence_mass': _kda_text(_protein_masses(protein)[1]),
             'structure_display': {'AlphaFold DB': 'AlphaFold', 'own model': 'AlphaFold 3',
@@ -1838,6 +1840,28 @@ def download_alignment(request):
     response = HttpResponse(alignment_fasta(full), content_type='text/plain')
     response['Content-Disposition'] = f'attachment; filename="lpmocat_alignment_{view}.fasta"'
     return response
+
+
+def protein_sequence_fasta(request, code):
+    """One protein's sequence as plain-text FASTA, shown in the browser (the tree tooltip's
+    "View FASTA" / "Copy"): the catalytic domain and, when the structure goes on past it, the
+    full-length structure sequence, both as residues of the served structure (N-terminus
+    trimmed to the N-His, no tags); only the catalytic domain with ?view=catalytic."""
+    protein = get_object_or_404(Protein.objects.select_related('clade', 'organism'), protein_code=code)
+    return HttpResponse(catalytic_fasta(protein, full_length=request.GET.get('view') != 'catalytic'),
+                        content_type='text/plain; charset=utf-8')
+
+
+def catalytic_fasta(protein, full_length=False):
+    """protein_sequence_fasta's text; full_length adds the full-length record when it differs."""
+    full = (protein.aligned_sequence or protein.sequence or '').replace('-', '')
+    catalytic = _catalytic_masked_seq(protein).replace('-', '') if protein.aligned_sequence else full
+    header = f'{protein.protein_code} {protein.selected_structure} {protein.clade.name} {protein.organism.name}'
+    wrap = lambda seq: '\n'.join(seq[i:i + 60] for i in range(0, len(seq), 60))
+    records = [(f'>{header} catalytic_domain length={len(catalytic)}', catalytic)]
+    if full_length and full != catalytic:
+        records.append((f'>{header} full_length length={len(full)}', full))
+    return '\n'.join(f'{h}\n{wrap(s)}' for h, s in records) + '\n'
 
 
 def alignment_fasta(full=False):

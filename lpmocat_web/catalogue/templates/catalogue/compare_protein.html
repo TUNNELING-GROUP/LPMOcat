@@ -152,6 +152,9 @@
                     <th class="sortable" data-column="sequence_mass" onclick="sortTable(this.cellIndex)" title="Polypeptide mass of the whole structure sequence (no glycans or metal)">
                         Total mass (kDa) <span class="sort-indicator"></span>
                     </th>
+                    <th data-column="sequence" title="The structure's sequence (from the N-His, tags removed). View: FASTA of the catalytic domain and, when the structure goes on past it, the full length, in a new tab. Copy: the catalytic-domain FASTA. The CSV export holds the catalytic-domain sequence.">
+                        Sequence
+                    </th>
                     <th class="sortable" data-column="net_charge" onclick="sortTable(this.cellIndex)" title="Net charge of the catalytic domain: the sum of the PDB2PQR (AMBER) atom charges, standard protonation states, copper excluded">
                         CD net charge (e) <span class="sort-indicator"></span>
                     </th>
@@ -228,6 +231,7 @@
                     <td>{{ row.sequence_length }}</td>
                     <td>{{ row.catalytic_mass }}</td>
                     <td>{{ row.sequence_mass }}</td>
+                    <td class="seq-cell" data-fasta="{{ row.catalytic_fasta }}"><a href="{% url 'protein_sequence_fasta' row.code %}" target="_blank" title="FASTA in a new tab">View</a> · <a href="#" class="copy-sequence" title="Copy the catalytic-domain sequence (FASTA)">Copy</a></td>
                     <td>{{ row.properties.net_charge.text }}</td>
                     <td>{{ row.properties.surface_charge.text }}</td>
                     <td>{{ row.properties.pi.text }}</td>
@@ -1935,6 +1939,37 @@
             document.body.removeChild(link);
         }
 
+        // Sequence column: "Copy" puts the catalytic-domain FASTA on the clipboard
+        // (navigator.clipboard on https and localhost only; else a hidden textarea)
+        document.addEventListener('click', function (event) {
+            const link = event.target.closest && event.target.closest('.seq-cell .copy-sequence');
+            if (!link) return;
+            event.preventDefault();
+            const text = link.closest('.seq-cell').getAttribute('data-fasta') || '';
+            const done = ok => {
+                link.textContent = ok ? 'Copied' : 'Copy failed';
+                setTimeout(() => { link.textContent = 'Copy'; }, 1500);
+            };
+            const fallback = () => {
+                const area = document.createElement('textarea');
+                area.value = text;
+                area.style.position = 'fixed';
+                area.style.opacity = '0';
+                document.body.appendChild(area);
+                area.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                area.remove();
+                done(ok);
+            };
+            if (!text) return done(false);
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => done(true), fallback);
+            } else {
+                fallback();
+            }
+        });
+
         function downloadTableAsCSV() {
             // Get all checked checkboxes
             const checkedBoxes = document.querySelectorAll('.proteinVisibilityCheckbox:checked');
@@ -1975,7 +2010,11 @@
                         
                         // Handle special cases for expandable columns
                         const nameSpan = cell.querySelector('.protein-names');
-                        if (nameSpan) {
+                        if (cell.classList.contains('seq-cell')) {
+                            // the catalytic-domain sequence itself, without the FASTA header
+                            cellText = (cell.getAttribute('data-fasta') || '').split('\n')
+                                .filter(line => line && !line.startsWith('>')).join('');
+                        } else if (nameSpan) {
                             // Get all names from data attribute
                             const names = nameSpan.getAttribute('data-names') || '';
                             cellText = names;

@@ -3,8 +3,9 @@
    catalogue_overview.css beside the tree of the compared proteins (selection_tree.js).
    Loaded after compare_layout.css. */
 
-/* the motifs and the shielding residue stay on one line (H-G-X4-P-X2-R, None (open)) */
-.catalog-table td.site-cell {
+/* the motifs, the shielding residue and "View · Copy" stay on one line (H-G-X4-P-X2-R, None (open)) */
+.catalog-table td.site-cell,
+.catalog-table td.seq-cell {
     white-space: nowrap;
 }
 
